@@ -24,7 +24,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       >
         <div className="p-4 h-full flex flex-col">
           <div className="flex items-center justify-center mb-4">
-            <img src={logo} alt="Almas Survey Logo" className="w-full h-auto rounded" />
+            <img src={logo} alt="Almas Survey Logo" className="w-full h-[45px] object-fit rounded" />
           </div>
           <nav className="flex-grow">
             <ul className="space-y-2">
