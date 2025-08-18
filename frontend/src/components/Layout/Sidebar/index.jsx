@@ -1,5 +1,6 @@
 import { NavLink } from "react-router";
 import { motion } from "framer-motion";
+import logo from "../../../assets/images/logo.webp";
 
 const sidebarVariants = {
   open: { x: 0 },
@@ -22,7 +23,10 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
         <div className="p-4 h-full flex flex-col">
-          <nav className="mt-6 flex-grow">
+          <div className="flex items-center justify-center mb-4">
+            <img src={logo} alt="Almas Survey Logo" className="w-full h-auto rounded" />
+          </div>
+          <nav className="flex-grow">
             <ul className="space-y-2">
               <li>
                 <NavLink
@@ -37,12 +41,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     if (window.innerWidth < 768) toggleSidebar();
                   }}
                 >
-                  Home
+                  Dashboard
                 </NavLink>
               </li>
               <li>
                 <NavLink
-                  to="/inquiries"
+                  to="/enquiries"
                   className={({ isActive }) =>
                     `block p-2 rounded ${isActive
                       ? "bg-[#4c7085] text-white font-medium text-sm"
@@ -53,12 +57,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     if (window.innerWidth < 768) toggleSidebar();
                   }}
                 >
-                  Inquiries
+                  Enquiries
                 </NavLink>
               </li>
               <li>
                 <NavLink
-                  to="/contact"
+                  to="/processing-enquries"
                   className={({ isActive }) =>
                     `block p-2 rounded ${isActive
                       ? "bg-[#4c7085] text-white font-medium text-sm"
@@ -69,12 +73,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     if (window.innerWidth < 768) toggleSidebar();
                   }}
                 >
-                  Contact
+                  Processing Enquiries
                 </NavLink>
               </li>
               <li>
                 <NavLink
-                  to="/thank-you"
+                  to="/follow-ups"
                   className={({ isActive }) =>
                     `block p-2 rounded ${isActive
                       ? "bg-[#4c7085] text-white font-medium text-sm"
@@ -85,7 +89,23 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     if (window.innerWidth < 768) toggleSidebar();
                   }}
                 >
-                  Thank You
+                  Follow Ups
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  to="/scheduled-surveys"
+                  className={({ isActive }) =>
+                    `block p-2 rounded ${isActive
+                      ? "bg-[#4c7085] text-white font-medium text-sm"
+                      : "text-[#2d4a5e] hover:bg-none hover:text-[#2d4a5e] font-medium text-sm"
+                    }`
+                  }
+                  onClick={() => {
+                    if (window.innerWidth < 768) toggleSidebar();
+                  }}
+                >
+                  Scheduled Surveys
                 </NavLink>
               </li>
             </ul>
