@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 
 const Topbar = ({ toggleSidebar, isOpen }) => {
   return (
-    <div className={`bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] shadow p-4 flex items-center justify-between sticky top-0 z-10 rounded-t-none rounded-b-3xl ${isOpen ? "mx-10" : "w-full"}`}>
+    <div className={`bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] shadow p-4 flex items-center justify-between sticky top-0 z-10 rounded-t-none rounded-b-3xl ${isOpen ? "mx-6" : "w-full"}`}>
       <motion.button
         className="text-white"
         onClick={toggleSidebar}
@@ -23,7 +23,7 @@ const Topbar = ({ toggleSidebar, isOpen }) => {
           />
         </svg>
       </motion.button>
-      <div className="flex space-x-4">
+      <div className="flex space-x-6">
         <span className="text-white hidden md:block">User Profile</span>
       </div>
     </div>
