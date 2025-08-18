@@ -29,8 +29,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   to="/"
                   className={({ isActive }) =>
                     `block p-2 rounded ${isActive
-                      ? "bg-[#4c7085] text-white"
-                      : "text-[#2d4a5e] hover:bg-none hover:text-[#2d4a5e]"
+                      ? "bg-[#4c7085] text-white font-medium text-sm"
+                      : "text-[#2d4a5e] hover:bg-none hover:text-[#2d4a5e] font-medium text-sm"
                     }`
                   }
                   onClick={() => {
@@ -45,8 +45,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   to="/inquiries"
                   className={({ isActive }) =>
                     `block p-2 rounded ${isActive
-                      ? "bg-[#4c7085] text-white"
-                      : "text-[#2d4a5e] hover:bg-none hover:text-[#2d4a5e]"
+                      ? "bg-[#4c7085] text-white font-medium text-sm"
+                      : "text-[#2d4a5e] hover:bg-none hover:text-[#2d4a5e] font-medium text-sm"
                     }`
                   }
                   onClick={() => {
@@ -61,8 +61,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   to="/contact"
                   className={({ isActive }) =>
                     `block p-2 rounded ${isActive
-                      ? "bg-[#4c7085] text-white"
-                      : "text-[#2d4a5e] hover:bg-none hover:text-[#2d4a5e]"
+                      ? "bg-[#4c7085] text-white font-medium text-sm"
+                      : "text-[#2d4a5e] hover:bg-none hover:text-[#2d4a5e] font-medium text-sm"
                     }`
                   }
                   onClick={() => {
@@ -77,8 +77,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   to="/thank-you"
                   className={({ isActive }) =>
                     `block p-2 rounded ${isActive
-                      ? "bg-[#4c7085] text-white"
-                      : "text-[#2d4a5e] hover:bg-none hover:text-[#2d4a5e]"
+                      ? "bg-[#4c7085] text-white font-medium text-sm"
+                      : "text-[#2d4a5e] hover:bg-none hover:text-[#2d4a5e] font-medium text-sm"
                     }`
                   }
                   onClick={() => {
