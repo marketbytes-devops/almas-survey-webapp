@@ -3,7 +3,7 @@ from django.db import models
 
 class User(AbstractUser):
     ROLE_CHOICES = (
-        ("admin", "Admin"),
+        ("survey-admin", "Admin"),
         ("sales", "Salesperson"),
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="sales")
@@ -20,7 +20,7 @@ class User(AbstractUser):
             self.username = self.email
         if isinstance(self.permissions, dict) and "permissions" in self.permissions:
             self.permissions = self.permissions["permissions"]
-        if self.role == "admin":
+        if self.role == "survey-admin":
             default_permissions = ["dashboard", "profile", "users", "permissions"]
             if not self.permissions:
                 self.permissions = default_permissions
