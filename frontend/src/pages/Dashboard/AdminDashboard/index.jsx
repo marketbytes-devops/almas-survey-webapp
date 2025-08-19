@@ -18,12 +18,6 @@ const AdminDashboard = () => {
             buttonText: "View 10 New Enquiries",
           },
           {
-            title: "Not Assigned Enquiries",
-            description: "Enquiries not yet assigned to a salesman.",
-            link: "/enquiries",
-            buttonText: "View 5 Not Assigned",
-          },
-          {
             title: "Processing Enquiries",
             description: "Enquiries assigned to salesmen and under processing.",
             link: "/processing-enquries",

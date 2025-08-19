@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { FaChevronDown, FaChevronUp } from "react-icons/fa";
-import { NavLink } from "react-router";
+import { NavLink } from "react-router-dom";
 
 const Dropdown = ({ title, items, isOpen, toggleDropdown }) => {
   return (
