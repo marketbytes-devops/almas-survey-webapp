@@ -15,10 +15,18 @@ const Permissions = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/auth/users/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/auth/users/list/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
-      setUsers(response.data);
+      const usersWithPermissions = await Promise.all(
+        response.data.map(async (user) => {
+          const permResponse = await axios.get(`http://127.0.0.1:8000/api/auth/permissions/${user.id}/`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          });
+          return { ...user, permissions: permResponse.data.permissions || [] };
+        })
+      );
+      setUsers(usersWithPermissions);
     } catch (err) {
       console.error("Failed to fetch users", err);
     }
@@ -122,7 +130,7 @@ const Permissions = () => {
                 <input
                   type="checkbox"
                   {...permissionForm.register(item.name)}
-                  disabled={selectedUser?.role === "admin" && ["dashboard", "profile", "users", "permissions"].includes(item.name)}
+                  disabled={selectedUser?.role === "survey-admin" && ["dashboard", "profile", "users", "permissions"].includes(item.name)}
                   className="mr-2 w-5 h-5 disabled:opacity-50"
                 />
                 <label className="text-[#2d4a5e] text-sm sm:text-base">{item.label}</label>

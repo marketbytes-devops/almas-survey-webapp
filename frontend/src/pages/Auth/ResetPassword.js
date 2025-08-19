@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import axios from "axios";
+import Input from "../../components/Input";
 
 const ResetPassword = () => {
   const { register, handleSubmit, formState: { errors } } = useForm();
@@ -11,7 +12,11 @@ const ResetPassword = () => {
 
   const onSubmit = async (data) => {
     try {
-      await axios.post("http://127.0.0.1:8000/api/auth/reset-password/", data);
+      await axios.post("http://127.0.0.1:8000/api/auth/reset-password/", {
+        email: data.email,
+        new_password: data.password,
+        confirm_new_password: data.confirm_password,
+      });
       setMessage("Password reset successfully");
       setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
@@ -24,33 +29,38 @@ const ResetPassword = () => {
       <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-[#2d4a5e] mb-6 text-center">Reset Password</h2>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-[#2d4a5e]">Email</label>
-            <input
-              type="email"
-              {...register("email", { required: "Email is required" })}
-              className="w-full p-2 border rounded text-[#2d4a5e] text-sm"
-            />
-            {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#2d4a5e]">OTP</label>
-            <input
-              type="text"
-              {...register("otp", { required: "OTP is required", pattern: { value: /^\d{6}$/, message: "OTP must be 6 digits" } })}
-              className="w-full p-2 border rounded text-[#2d4a5e] text-sm"
-            />
-            {errors.otp && <p className="text-red-500 text-sm">{errors.otp.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#2d4a5e]">New Password</label>
-            <input
-              type="password"
-              {...register("password", { required: "Password is required", minLength: { value: 6, message: "Password must be at least 6 characters" } })}
-              className="w-full p-2 border rounded text-[#2d4a5e] text-sm"
-            />
-            {errors.password && <p className="text-red-500 text-sm">{errors.password.message}</p>}
-          </div>
+          <Input
+            label="Email"
+            name="email"
+            type="email"
+            rules={{ required: "Email is required" }}
+            register={register}
+            errors={errors}
+          />
+          <Input
+            label="OTP"
+            name="otp"
+            type="text"
+            rules={{ required: "OTP is required", pattern: { value: /^\d{6}$/, message: "OTP must be 6 digits" } }}
+            register={register}
+            errors={errors}
+          />
+          <Input
+            label="New Password"
+            name="password"
+            type="password"
+            rules={{ required: "Password is required", minLength: { value: 6, message: "Password must be at least 6 characters" } }}
+            register={register}
+            errors={errors}
+          />
+          <Input
+            label="Confirm New Password"
+            name="confirm_password"
+            type="password"
+            rules={{ required: "Confirm password is required", minLength: { value: 6, message: "Password must be at least 6 characters" } }}
+            register={register}
+            errors={errors}
+          />
           {message && <p className="text-green-500 text-sm">{message}</p>}
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button

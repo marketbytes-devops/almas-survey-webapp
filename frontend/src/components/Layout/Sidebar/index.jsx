@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { NavLink } from "react-router";
 import { motion } from "framer-motion";
-import logo from "../../../assets/images/logo.webp";
 import { useAuth } from "../../../hooks/useAuth";
+import logo from "../../../assets/images/logo.webp";
+import Dropdown from "../../Dropdown";
 
 const sidebarVariants = {
   open: { x: 0 },
@@ -15,6 +17,7 @@ const overlayVariants = {
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user, loading } = useAuth();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const allNavItems = [
     { to: "/", label: "Dashboard", permission: "dashboard" },
@@ -24,17 +27,17 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     { to: "/scheduled-surveys", label: "Scheduled Surveys", permission: "scheduled-surveys" },
     { to: "/new-enquiries", label: "New Enquiries", permission: "new-enquiries" },
     { to: "/profile", label: "Additional Settings", permission: "profile" },
+  ];
+
+  const adminNavItems = [
     { to: "/users", label: "Users", permission: "users" },
     { to: "/permissions", label: "Permissions", permission: "permissions" },
   ];
 
-  const adminMandatoryPermissions = ["dashboard", "profile", "users", "permissions"];
-
-  const navItems = user?.role === "admin"
-    ? allNavItems.filter(item => adminMandatoryPermissions.includes(item.permission) || user.permissions.includes(item.permission))
+  const navItems = user?.role === "survey-admin"
+    ? allNavItems
     : allNavItems.filter(item => user?.permissions.includes(item.permission));
 
-  // Sort navItems by label for consistent display
   navItems.sort((a, b) => a.label.localeCompare(b.label));
 
   if (loading) {
@@ -121,6 +124,16 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   </NavLink>
                 </li>
               ))}
+              {user.role === "survey-admin" && (
+                <li key="user-management">
+                  <Dropdown
+                    title="User Management"
+                    items={adminNavItems}
+                    isOpen={dropdownOpen}
+                    toggleDropdown={() => setDropdownOpen(!dropdownOpen)}
+                  />
+                </li>
+              )}
             </ul>
           </nav>
         </div>

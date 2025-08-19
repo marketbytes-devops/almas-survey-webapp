@@ -30,7 +30,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = (
         ('user', 'User'),
         ('admin', 'Admin'),
-        ('superadmin', 'Superadmin'), 
+        ('superadmin', 'Superadmin'),
+        ('survey-admin', 'Survey Admin'),
+        ('sales', 'Sales'),
     )
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=30, blank=True)
@@ -40,7 +42,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(default=timezone.now)
     otp = models.CharField(max_length=6, blank=True, null=True)
     otp_created_at = models.DateTimeField(blank=True, null=True)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
 
     objects = CustomUserManager()
 
@@ -55,3 +57,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         self.otp_created_at = timezone.now()
         self.save()
         return self.otp
+
+class PagePermission(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    permissions = models.JSONField(default=list)

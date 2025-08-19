@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from .models import CustomUser
 from django.utils import timezone
 from datetime import timedelta
+from .models import CustomUser, PagePermission
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -46,3 +46,8 @@ class ResetPasswordSerializer(serializers.Serializer):
         if not CustomUser.objects.filter(email=value).exists():
             raise serializers.ValidationError("User with this email does not exist.")
         return value
+
+class PagePermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PagePermission
+        fields = ['id', 'user', 'permissions']

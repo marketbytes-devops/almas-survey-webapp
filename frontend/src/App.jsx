@@ -61,15 +61,15 @@ const router = createBrowserRouter([
       {
         index: true,
         element: (
-          <ProtectedRoute allowedRoles={["admin", "sales"]} requiredPermission="dashboard">
-            {user => (user.role === "admin" ? <AdminDashboard /> : <SalesDashboard />)}
+          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="dashboard">
+            {user => (user.role === "survey-admin" ? <AdminDashboard /> : <SalesDashboard />)}
           </ProtectedRoute>
         ),
       },
       {
         path: "/enquiries",
         element: (
-          <ProtectedRoute allowedRoles={["admin", "sales"]} requiredPermission="enquiries">
+          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="enquiries">
             <Enquiries />
           </ProtectedRoute>
         ),
@@ -77,7 +77,7 @@ const router = createBrowserRouter([
       {
         path: "/processing-enquiries",
         element: (
-          <ProtectedRoute allowedRoles={["admin", "sales"]} requiredPermission="processing-enquiries">
+          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="processing-enquiries">
             <ProcessingEnquiries />
           </ProtectedRoute>
         ),
@@ -85,7 +85,7 @@ const router = createBrowserRouter([
       {
         path: "/follow-ups",
         element: (
-          <ProtectedRoute allowedRoles={["admin", "sales"]} requiredPermission="follow-ups">
+          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="follow-ups">
             <FollowUps />
           </ProtectedRoute>
         ),
@@ -93,7 +93,7 @@ const router = createBrowserRouter([
       {
         path: "/scheduled-surveys",
         element: (
-          <ProtectedRoute allowedRoles={["admin", "sales"]} requiredPermission="scheduled-surveys">
+          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="scheduled-surveys">
             <ScheduledSurveys />
           </ProtectedRoute>
         ),
@@ -101,7 +101,7 @@ const router = createBrowserRouter([
       {
         path: "/new-enquiries",
         element: (
-          <ProtectedRoute allowedRoles={["admin", "sales"]} requiredPermission="new-enquiries">
+          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="new-enquiries">
             <NewEnquiries />
           </ProtectedRoute>
         ),
@@ -109,7 +109,7 @@ const router = createBrowserRouter([
       {
         path: "/profile",
         element: (
-          <ProtectedRoute allowedRoles={["admin", "sales"]} requiredPermission="profile">
+          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="profile">
             <Profile />
           </ProtectedRoute>
         ),
@@ -117,7 +117,7 @@ const router = createBrowserRouter([
       {
         path: "/users",
         element: (
-          <ProtectedRoute allowedRoles={["admin"]} requiredPermission="users">
+          <ProtectedRoute allowedRoles={["survey-admin"]} requiredPermission="users">
             <Users />
           </ProtectedRoute>
         ),
@@ -125,7 +125,7 @@ const router = createBrowserRouter([
       {
         path: "/permissions",
         element: (
-          <ProtectedRoute allowedRoles={["admin"]} requiredPermission="permissions">
+          <ProtectedRoute allowedRoles={["survey-admin"]} requiredPermission="permissions">
             <Permissions />
           </ProtectedRoute>
         ),

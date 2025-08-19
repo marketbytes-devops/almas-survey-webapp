@@ -23,7 +23,7 @@ const Users = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/auth/users/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/auth/users/list/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       setUsers(response.data);
@@ -34,7 +34,7 @@ const Users = () => {
 
   const onAddSubmit = async (data) => {
     try {
-      await axios.post("http://127.0.0.1:8000/api/auth/users/", { ...data, role: "sales" }, {
+      await axios.post("http://127.0.0.1:8000/api/auth/users/", data, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       fetchUsers();
@@ -47,7 +47,7 @@ const Users = () => {
 
   const onDelete = async () => {
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/auth/users/${selectedUser.id}/`, {
+      await axios.delete(`http://127.0.0.1:8000/api/auth/users/${selectedUser.id}/delete/`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       fetchUsers();
@@ -66,7 +66,7 @@ const Users = () => {
         Add Sales Person
       </button>
       <div className="space-y-4">
-        {users.filter((user) => user.role === "sales").map((user, index) => (
+        {users.map((user, index) => (
           <motion.div
             key={user.id}
             className="rounded-lg p-5 bg-white shadow-sm"
@@ -78,6 +78,7 @@ const Users = () => {
               <p><strong>Sl No:</strong> {index + 1}</p>
               <p><strong>Name:</strong> {user.name}</p>
               <p><strong>Email:</strong> {user.email}</p>
+              <p><strong>Role:</strong> {user.role}</p>
               <button
                 onClick={() => {
                   setSelectedUser(user);

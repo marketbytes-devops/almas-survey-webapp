@@ -13,22 +13,29 @@ export const AuthProvider = ({ children }) => {
     const storedRefreshToken = localStorage.getItem("refresh_token");
     if (storedUser && storedToken && storedRefreshToken) {
       const parsedUser = JSON.parse(storedUser);
-      if (parsedUser.permissions && typeof parsedUser.permissions === "object" && "permissions" in parsedUser.permissions) {
-        parsedUser.permissions = parsedUser.permissions.permissions;
-      }
       setUser(parsedUser);
     }
     setLoading(false);
   }, []);
 
-  const login = (userData, accessToken, refreshToken) => {
-    if (userData.permissions && typeof userData.permissions === "object" && "permissions" in userData.permissions) {
-      userData.permissions = userData.permissions.permissions;
+  const login = async (userData, accessToken, refreshToken) => {
+    try {
+      const response = await axios.get(`http://127.0.0.1:8000/api/auth/permissions/${userData.id}/`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      userData.permissions = response.data.permissions || [];
+      setUser(userData);
+      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("token", accessToken);
+      localStorage.setItem("refresh_token", refreshToken);
+    } catch (err) {
+      console.error("Failed to fetch permissions", err);
+      userData.permissions = [];
+      setUser(userData);
+      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("token", accessToken);
+      localStorage.setItem("refresh_token", refreshToken);
     }
-    setUser(userData);
-    localStorage.setItem("user", JSON.stringify(userData));
-    localStorage.setItem("token", accessToken);
-    localStorage.setItem("refresh_token", refreshToken);
   };
 
   const logout = async () => {

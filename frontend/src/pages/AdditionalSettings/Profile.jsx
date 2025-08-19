@@ -1,14 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import axios from "axios";
 import { useAuth } from "../../hooks/useAuth";
 import Input from "../../components/Input";
 
 const Profile = () => {
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { register, handleSubmit, formState: { errors }, reset } = useForm();
   const { user } = useAuth();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      reset({
+        name: user.name,
+        email: user.email,
+      });
+    }
+  }, [user, reset]);
 
   const onSubmit = async (data) => {
     try {

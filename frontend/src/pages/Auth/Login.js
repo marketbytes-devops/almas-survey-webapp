@@ -14,7 +14,11 @@ const Login = () => {
   const onSubmit = async (data) => {
     try {
       const response = await axios.post("http://127.0.0.1:8000/api/auth/login/", data);
-      login(response.data.user, response.data.access, response.data.refresh);
+      login(
+        { id: response.data.id, email: data.email, role: response.data.role },
+        response.data.access,
+        response.data.refresh
+      );
       navigate("/");
     } catch (err) {
       setError("Invalid email or password");

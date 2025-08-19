@@ -51,7 +51,8 @@ INSTALLED_APPS = [
     'add_customers',
     'add_jobs',
     'contact',
-    'documentation'
+    'documentation',
+    'survey'
 ]
 
 MIDDLEWARE = [

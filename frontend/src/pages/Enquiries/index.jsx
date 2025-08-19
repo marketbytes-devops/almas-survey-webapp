@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { FormProvider, useForm } from "react-hook-form";
 import { FaPhoneAlt, FaWhatsapp, FaEnvelope } from "react-icons/fa";
+import axios from "axios";
 import Modal from "../../components/Modal";
 import Input from "../../components/Input";
+import { useAuth } from "../../hooks/useAuth";
 
 const rowVariants = {
   hover: { backgroundColor: "#f3f4f6" },
@@ -11,29 +13,10 @@ const rowVariants = {
 };
 
 const Enquiries = () => {
-  const [enquiries, setEnquiries] = useState([
-    {
-      id: 1,
-      date: "2025-08-18 10:00",
-      customerName: "John Doe",
-      phone: "123-456-7890",
-      email: "john@example.com",
-      service: "Survey Consultation",
-      message: "Interested in property survey.",
-      assigned: false,
-    },
-    {
-      id: 2,
-      date: "2025-08-17 14:30",
-      customerName: "Jane Smith",
-      phone: "987-654-3210",
-      email: "jane@example.com",
-      service: "Land Assessment",
-      message: "Need assessment.",
-      assigned: false,
-    },
-  ]);
-
+  const { user } = useAuth();
+  const [enquiries, setEnquiries] = useState([]);
+  const [salespersons, setSalespersons] = useState([]);
+  const [error, setError] = useState(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
@@ -45,63 +28,144 @@ const Enquiries = () => {
   const editForm = useForm();
   const assignForm = useForm();
 
-  const salespersons = [
-    { value: "john_doe", label: "John Doe" },
-    { value: "jane_smith", label: "Jane Smith" },
-    { value: "bob_jones", label: "Bob Jones" },
+  const serviceOptions = [
+    { value: "localMove", label: "Local Move" },
+    { value: "internationalMove", label: "International Move" },
+    { value: "carExport", label: "Car Import and Export" },
+    { value: "storageServices", label: "Storage Services" },
+    { value: "logistics", label: "Logistics" },
   ];
 
-  const formatDate = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  useEffect(() => {
+    fetchEnquiries();
+    if (user?.role === "survey-admin") {
+      fetchSalespersons();
+    }
+  }, [user]);
+
+  const fetchEnquiries = async () => {
+    try {
+      setError(null);
+      const response = await axios.get("http://127.0.0.1:8000/api/survey/survey-enquiries/", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      setEnquiries(response.data);
+    } catch (err) {
+      console.error("Failed to fetch enquiries", err);
+      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to fetch enquiries. Please try again.");
+    }
   };
 
-  const onAddSubmit = (data) => {
-    const newEnquiry = {
-      id: enquiries.length + 1,
-      date: formatDate(new Date()),
-      ...data,
-      assigned: false,
-    };
-    setEnquiries([...enquiries, newEnquiry]);
-    setIsAddOpen(false);
-    addForm.reset();
+  const fetchSalespersons = async () => {
+    try {
+      setError(null);
+      const response = await axios.get("http://127.0.0.1:8000/api/survey/salespersons/", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      setSalespersons(response.data);
+    } catch (err) {
+      console.error("Failed to fetch salespersons", err);
+      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to fetch salespersons. Please try again.");
+    }
   };
 
-  const onEditSubmit = (data) => {
-    setEnquiries(
-      enquiries.map((enquiry) =>
-        enquiry.id === selectedEnquiry.id ? { ...enquiry, ...data } : enquiry
-      )
-    );
-    setIsEditOpen(false);
-    editForm.reset();
+  const formatError = (errorData) => {
+    if (!errorData) return null;
+    return Object.entries(errorData)
+      .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(", ") : errors}`)
+      .join("; ");
   };
 
-  const onAssignSubmit = (data) => {
-    setEnquiries(
-      enquiries.map((enquiry) =>
-        enquiry.id === selectedEnquiry.id
-          ? { ...enquiry, assigned: true, salesperson: data.salesperson, note: data.note }
-          : enquiry
-      )
-    );
-    setIsAssignOpen(false);
-    assignForm.reset();
+  const onAddSubmit = async (data) => {
+    try {
+      setError(null);
+      await axios.post(
+        "http://127.0.0.1:8000/api/survey/survey-enquiries/",
+        {
+          customerName: data.customerName,
+          phone: data.phone,
+          email: data.email,
+          service: data.service,
+          message: data.message,
+          recaptchaToken: "", // Add reCAPTCHA logic if needed
+          refererUrl: window.location.href,
+          submittedUrl: window.location.href,
+        },
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      );
+      fetchEnquiries();
+      setIsAddOpen(false);
+      addForm.reset();
+    } catch (err) {
+      console.error("Failed to add enquiry", err);
+      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to add enquiry. Please try again.");
+    }
   };
 
-  const onDelete = () => {
-    setEnquiries(enquiries.filter((enquiry) => enquiry.id !== selectedEnquiry.id));
-    setIsDeleteOpen(false);
+  const onEditSubmit = async (data) => {
+    try {
+      setError(null);
+      await axios.put(
+        `http://127.0.0.1:8000/api/survey/survey-enquiries/${selectedEnquiry.id}/`,
+        {
+          customerName: data.customerName,
+          phone: data.phone,
+          email: data.email,
+          service: data.service,
+          message: data.message,
+        },
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      );
+      fetchEnquiries();
+      setIsEditOpen(false);
+      editForm.reset();
+    } catch (err) {
+      console.error("Failed to update enquiry", err);
+      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to update enquiry. Please try again.");
+    }
+  };
+
+  const onAssignSubmit = async (data) => {
+    try {
+      setError(null);
+      await axios.post(
+        `http://127.0.0.1:8000/api/survey/survey-enquiries/${selectedEnquiry.id}/assign/`,
+        { salesperson_email: data.salesperson || null, note: data.note },
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      );
+      fetchEnquiries();
+      setIsAssignOpen(false);
+      assignForm.reset();
+    } catch (err) {
+      console.error("Failed to assign enquiry", err);
+      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to assign enquiry. Please try again.");
+    }
+  };
+
+  const onDelete = async () => {
+    try {
+      setError(null);
+      await axios.delete(
+        `http://127.0.0.1:8000/api/survey/survey-enquiries/${selectedEnquiry.id}/delete/`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      );
+      fetchEnquiries();
+      setIsDeleteOpen(false);
+    } catch (err) {
+      console.error("Failed to delete enquiry", err);
+      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to delete enquiry. Please try again.");
+    }
   };
 
   const openEditModal = (enquiry) => {
     setSelectedEnquiry(enquiry);
-    editForm.reset(enquiry);
+    editForm.reset({
+      customerName: enquiry.customerName,
+      phone: enquiry.phone,
+      email: enquiry.email,
+      service: enquiry.service,
+      message: enquiry.message,
+    });
     setIsEditOpen(true);
   };
 
@@ -123,17 +187,24 @@ const Enquiries = () => {
 
   return (
     <div className="container mx-auto">
-      <div className="mb-6">
-        <button
-          onClick={() => setIsAddOpen(true)}
-          className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm sm:text-base font-medium py-2 px-4 rounded hover:bg-[#4c7085]"
-        >
-          Add New Enquiry
-        </button>
-      </div>
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">
+          {error}
+        </div>
+      )}
+      {user?.role === "survey-admin" && (
+        <div className="mb-6">
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm sm:text-base font-medium py-2 px-4 rounded hover:bg-[#4c7085]"
+          >
+            Add New Enquiry
+          </button>
+        </div>
+      )}
       <div className="space-y-4">
         {enquiries
-          .filter((enquiry) => !enquiry.assigned)
+          .filter((enquiry) => (user?.role === "sales" ? enquiry.assigned : !enquiry.assigned))
           .map((enquiry, index) => (
             <motion.div
               key={enquiry.id}
@@ -144,7 +215,7 @@ const Enquiries = () => {
             >
               <div className="space-y-2 text-[#2d4a5e] text-sm sm:text-base">
                 <p><strong>Sl No:</strong> {index + 1}</p>
-                <p><strong>Date & Time:</strong> {enquiry.date}</p>
+                <p><strong>Date & Time:</strong> {new Date(enquiry.date).toLocaleString()}</p>
                 <p><strong>Customer Name:</strong> {enquiry.customerName}</p>
                 <p className="flex items-center gap-2">
                   <strong>Phone:</strong>
@@ -168,26 +239,31 @@ const Enquiries = () => {
                 </p>
                 <p><strong>Service:</strong> {enquiry.service}</p>
                 <p><strong>Message:</strong> {enquiry.message}</p>
-                <div className="flex flex-wrap gap-2 pt-3">
-                  <button
-                    onClick={() => openAssignModal(enquiry)}
-                    className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded hover:bg-[#4c7085]"
-                  >
-                    Assign
-                  </button>
-                  <button
-                    onClick={() => openEditModal(enquiry)}
-                    className="bg-gray-500 text-white text-sm py-2 px-3 rounded hover:bg-gray-600"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => openDeleteModal(enquiry)}
-                    className="bg-red-500 text-white text-sm py-2 px-3 rounded hover:bg-red-600"
-                  >
-                    Delete
-                  </button>
-                </div>
+                {enquiry.assigned && user?.role === "sales" && (
+                  <p><strong>Note:</strong> {enquiry.note || "N/A"}</p>
+                )}
+                {user?.role === "survey-admin" && !enquiry.assigned && (
+                  <div className="flex flex-wrap gap-2 pt-3">
+                    <button
+                      onClick={() => openAssignModal(enquiry)}
+                      className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded hover:bg-[#4c7085]"
+                    >
+                      Assign
+                    </button>
+                    <button
+                      onClick={() => openEditModal(enquiry)}
+                      className="bg-gray-500 text-white text-sm py-2 px-3 rounded hover:bg-gray-600"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => openDeleteModal(enquiry)}
+                      className="bg-red-500 text-white text-sm py-2 px-3 rounded hover:bg-red-600"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}
@@ -250,7 +326,8 @@ const Enquiries = () => {
             <Input
               label="Service Required"
               name="service"
-              type="text"
+              type="select"
+              options={serviceOptions}
               rules={{ required: "Service Required is required" }}
             />
             <Input
@@ -320,7 +397,8 @@ const Enquiries = () => {
             <Input
               label="Service Required"
               name="service"
-              type="text"
+              type="select"
+              options={serviceOptions}
               rules={{ required: "Service Required is required" }}
             />
             <Input
@@ -362,7 +440,7 @@ const Enquiries = () => {
               name="salesperson"
               type="select"
               options={salespersons}
-              rules={{ required: "Salesperson is required" }}
+              rules={{ required: false }}
             />
             <Input
               label="Note (Optional)"
@@ -386,7 +464,7 @@ const Enquiries = () => {
             </button>
             <button
               onClick={onDelete}
-              className="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600 text-sm sm:text-base"
+              className="bg-red-500 text-white py-2 px-3 rounded hover:bg-red-600 text-sm sm:text-base"
             >
               Delete
             </button>
