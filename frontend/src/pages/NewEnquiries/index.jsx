@@ -142,7 +142,7 @@ const NewEnquiries = () => {
                 <p><strong>Message:</strong> {enquiry.message}</p>
                 <p><strong>Note:</strong> {enquiry.note || "-"}</p>
                 <p>
-                  <strong>Contact Status:</strong>
+                  <strong>Contact Status: </strong>
                   <select
                     className="p-2 border rounded text-[#2d4a5e] text-sm sm:text-base mt-2"
                     onChange={(e) => openContactStatusModal(enquiry, e.target.value)}
