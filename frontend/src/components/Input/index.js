@@ -1,11 +1,4 @@
-import { useFormContext } from "react-hook-form";
-
-const Input = ({ label, name, type = "text", options = [], ...props }) => {
-  const {
-    register,
-    formState: { errors },
-  } = useFormContext();
-
+const Input = ({ label, name, type = "text", options = [], register, errors, ...props }) => {
   return (
     <div className="mb-4 sm:mb-5">
       <label className="block text-[#2d4a5e] text-sm sm:text-base font-medium mb-1.5">
@@ -13,7 +6,7 @@ const Input = ({ label, name, type = "text", options = [], ...props }) => {
       </label>
       {type === "select" ? (
         <select
-          {...register(name, props)}
+          {...register(name, props.rules)}
           className={`w-full p-3 sm:p-2.5 border rounded text-[#2d4a5e] text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-[#4c7085] min-h-[44px] ${
             errors[name] ? "border-red-500" : "border-gray-300"
           }`}
@@ -27,16 +20,17 @@ const Input = ({ label, name, type = "text", options = [], ...props }) => {
         </select>
       ) : type === "textarea" ? (
         <textarea
-          {...register(name, props)}
+          {...register(name, props.rules)}
           className={`w-full p-3 sm:p-2.5 border rounded text-[#2d4a5e] text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-[#4c7085] min-h-[100px] ${
             errors[name] ? "border-red-500" : "border-gray-300"
           }`}
           rows="4"
+          {...props}
         />
       ) : (
         <input
           type={type}
-          {...register(name, props)}
+          {...register(name, props.rules)}
           className={`w-full p-3 sm:p-2.5 border rounded text-[#2d4a5e] text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-[#4c7085] min-h-[44px] ${
             errors[name] ? "border-red-500" : "border-gray-300"
           }`}

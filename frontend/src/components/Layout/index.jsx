@@ -6,11 +6,13 @@ import Topbar from "./Topbar";
 const routeNames = {
   "/": "Dashboard",
   "/enquiries": "Enquiries",
-  "/processing-enquries": "Processing Enquiries",
+  "/processing-enquiries": "Processing Enquiries",
   "/follow-ups": "Follow Ups",
   "/scheduled-surveys": "Scheduled Surveys",
   "/new-enquiries": "New Enquiries",
   "/profile": "Additional Settings",
+  "/users": "Users",
+  "/permissions": "Permissions",
 };
 
 const Layout = () => {
@@ -33,9 +35,9 @@ const Layout = () => {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar isOpen={isOpen} toggleSidebar={toggleSidebar} />
-      <div className={`flex flex-col flex-1 min-w-0 ${isOpen ? "md:ml-72" : "md:ml-0"} transition-all duration-300`}>
+      <div className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ${isOpen ? "md:ml-72" : "md:ml-0"}`}>
         <Topbar toggleSidebar={toggleSidebar} isOpen={isOpen} activePage={activePage} />
-        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 md:p-6 overflow-y-auto">
           <Outlet />
         </main>
       </div>

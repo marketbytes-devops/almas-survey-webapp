@@ -44,7 +44,7 @@ const AdminDashboard = () => {
         ].map((card, index) => (
           <motion.div
             key={index}
-            className="bg-white shadow rounded-lg p-5 sm:p-6"
+            className="bg-white shadow rounded-lg p-4 sm:p-6"
             variants={cardVariants}
             initial="rest"
             whileHover="hover"

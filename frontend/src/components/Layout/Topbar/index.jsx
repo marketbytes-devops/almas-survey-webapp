@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
 import { FaBars } from "react-icons/fa";
+import Logout from "../../../pages/Auth/Logout";
 
 const Topbar = ({ toggleSidebar, isOpen, activePage }) => {
   return (
-    <div className={`bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] shadow px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-10 rounded-b-lg ${isOpen ? "md:mx-6" : "mx-6"}`}>
+    <div className={`bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] shadow px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-10 rounded-b-lg ${isOpen ? "md:mx-6" : "mx-4 sm:mx-6"}`}>
       <div className="flex items-center space-x-4">
         <motion.button
           className="text-white p-2 rounded-md hover:bg-[#2d4a5e]/20"
@@ -22,7 +23,7 @@ const Topbar = ({ toggleSidebar, isOpen, activePage }) => {
         </span>
       </div>
       <div className="flex space-x-4 sm:space-x-6">
-        <span className="text-white text-sm sm:text-base hidden md:block">User Profile</span>
+        <Logout />
       </div>
     </div>
   );
