@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { FaBars, FaTimes } from "react-icons/fa";
+import { FaBars } from "react-icons/fa";
 
 const Topbar = ({ toggleSidebar, isOpen, activePage }) => {
   return (
@@ -12,7 +12,7 @@ const Topbar = ({ toggleSidebar, isOpen, activePage }) => {
           transition={{ duration: 0.3 }}
         >
           {isOpen ? (
-            <FaTimes className="w-4 h-4 sm:w-6 sm:h-6" />
+            <FaBars className="w-4 h-4 sm:w-6 sm:h-6" />
           ) : (
             <FaBars className="w-4 h-4 sm:w-6 sm:h-6" />
           )}
