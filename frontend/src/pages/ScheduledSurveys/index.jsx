@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink } from "react-router";
 import { motion } from "framer-motion";
 import { FormProvider, useForm } from "react-hook-form";
+import { FaPhoneAlt, FaWhatsapp, FaEnvelope } from "react-icons/fa";
 import Modal from "../../components/Modal";
 import Input from "../../components/Input";
 
@@ -42,6 +43,7 @@ const ScheduledSurveys = () => {
 
   const [isRescheduleSurveyOpen, setIsRescheduleSurveyOpen] = useState(false);
   const [isCancelSurveyOpen, setIsCancelSurveyOpen] = useState(false);
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
 
   const rescheduleSurveyForm = useForm();
@@ -103,94 +105,105 @@ const ScheduledSurveys = () => {
     setIsCancelSurveyOpen(true);
   };
 
+  const openPhoneModal = (enquiry) => {
+    setSelectedEnquiry(enquiry);
+    setIsPhoneModalOpen(true);
+  };
+
   return (
     <div className="container mx-auto">
-      <h1 className="text-2xl md:text-3xl font-semibold text-[#2d4a5e] mb-6">
-        Scheduled Surveys
-      </h1>
-
-      <div className="bg-white shadow rounded-lg overflow-x-auto">
-        <table className="min-w-full">
-          <thead>
-            <tr className="bg-[#4c7085] text-white text-sm">
-              <th className="p-2 text-left">Sl No</th>
-              <th className="p-2 text-left">Survey Date & Time</th>
-              <th className="p-2 text-left">Customer Name</th>
-              <th className="p-2 text-left">Phone</th>
-              <th className="p-2 text-left">Email</th>
-              <th className="p-2 text-left">Service</th>
-              <th className="p-2 text-left">Message</th>
-              <th className="p-2 text-left">Note</th>
-              <th className="p-2 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {enquiries
-              .filter((enquiry) => enquiry.survey)
-              .map((enquiry, index) => (
-                <motion.tr
-                  key={enquiry.id}
-                  className="border-b"
-                  variants={rowVariants}
-                  initial="rest"
-                  whileHover="hover"
-                  transition={{ duration: 0.2 }}
-                >
-                  <td className="p-2 text-[#2d4a5e]">{index + 1}</td>
-                  <td className="p-2 text-[#2d4a5e]">{enquiry.survey.date}</td>
-                  <td className="p-2 text-[#2d4a5e]">{enquiry.customerName}</td>
-                  <td className="p-2 text-[#2d4a5e]">{enquiry.phone}</td>
-                  <td className="p-2 text-[#2d4a5e]">{enquiry.email}</td>
-                  <td className="p-2 text-[#2d4a5e]">{enquiry.service}</td>
-                  <td className="p-2 text-[#2d4a5e]">{enquiry.message}</td>
-                  <td className="p-2 text-[#2d4a5e]">{enquiry.note || "-"}</td>
-                  <td className="p-2 flex space-x-2">
-                    <button
-                      onClick={() => openRescheduleSurveyModal(enquiry)}
-                      className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-xs py-1 px-2 rounded hover:bg-[#4c7085]"
-                    >
-                      Re-Schedule
-                    </button>
-                    <button
-                      onClick={() => openCancelSurveyModal(enquiry)}
-                      className="bg-red-500 text-white text-xs py-1 px-2 rounded hover:bg-red-600"
-                    >
-                      Cancel
-                    </button>
-                    <NavLink
-                      to="/survey-form"
-                      className="bg-gray-500 text-white text-xs py-1 px-2 rounded hover:bg-gray-600"
-                    >
-                      Start Survey
-                    </NavLink>
-                  </td>
-                </motion.tr>
-              ))}
-          </tbody>
-        </table>
+      <div className="space-y-4">
+        {enquiries
+          .filter((enquiry) => enquiry.survey)
+          .map((enquiry, index) => (
+            <motion.div
+              key={enquiry.id}
+              className="rounded-lg p-5 bg-white shadow-sm"
+              variants={rowVariants}
+              initial="rest"
+              whileHover="hover"
+            >
+              <div className="space-y-2 text-[#2d4a5e] text-sm sm:text-base">
+                <p><strong>Sl No:</strong> {index + 1}</p>
+                <p><strong>Survey Date & Time:</strong> {enquiry.survey.date}</p>
+                <p><strong>Customer Name:</strong> {enquiry.customerName}</p>
+                <p className="flex items-center gap-2">
+                  <strong>Phone:</strong> {enquiry.phone}
+                  <button
+                    onClick={() => openPhoneModal(enquiry)}
+                    className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
+                    aria-label="Contact via phone or WhatsApp"
+                  >
+                    <FaPhoneAlt className="w-3 h-3" /> {enquiry.phone}
+                  </button>
+                </p>
+                <p className="flex items-center gap-2">
+                  <strong>Email:</strong> 
+                  <a
+                    href={`mailto:${enquiry.email}`}
+                    className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
+                    aria-label="Email customer"
+                  >
+                    <FaEnvelope className="w-3 h-3" /> {enquiry.email}
+                  </a>
+                </p>
+                <p><strong>Service:</strong> {enquiry.service}</p>
+                <p><strong>Message:</strong> {enquiry.message}</p>
+                <p><strong>Note:</strong> {enquiry.note || "-"}</p>
+                <div className="flex flex-wrap gap-2 pt-3">
+                  <motion.button
+                    onClick={() => openRescheduleSurveyModal(enquiry)}
+                    className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded hover:bg-[#4c7085]"
+                    whileTap={{ scale: 0.95 }}
+                    aria-label="Reschedule survey"
+                  >
+                    Re-Schedule
+                  </motion.button>
+                  <motion.button
+                    onClick={() => openCancelSurveyModal(enquiry)}
+                    className="bg-red-500 text-white text-sm py-2 px-3 rounded hover:bg-red-600"
+                    whileTap={{ scale: 0.95 }}
+                    aria-label="Cancel survey"
+                  >
+                    Cancel
+                  </motion.button>
+                  <NavLink
+                    to="/survey-form"
+                    className="bg-gray-500 text-white text-sm py-2 px-3 rounded hover:bg-gray-600 text-center"
+                    aria-label="Start survey"
+                  >
+                    Start Survey
+                  </NavLink>
+                </div>
+              </div>
+            </motion.div>
+          ))}
       </div>
 
-      {/* Re-Schedule Survey Modal */}
       <Modal
         isOpen={isRescheduleSurveyOpen}
         onClose={() => setIsRescheduleSurveyOpen(false)}
         title="Re-Schedule Survey"
         footer={
           <>
-            <button
+            <motion.button
               type="button"
               onClick={() => setIsRescheduleSurveyOpen(false)}
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+              whileTap={{ scale: 0.95 }}
+              aria-label="Cancel reschedule"
             >
               Cancel
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="submit"
               form="reschedule-survey-form"
-              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085]"
+              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
+              whileTap={{ scale: 0.95 }}
+              aria-label="Confirm reschedule"
             >
               Re-Schedule
-            </button>
+            </motion.button>
           </>
         }
       >
@@ -198,6 +211,7 @@ const ScheduledSurveys = () => {
           <form
             id="reschedule-survey-form"
             onSubmit={rescheduleSurveyForm.handleSubmit(onRescheduleSurveySubmit)}
+            className="space-y-4"
           >
             <Input
               label="Survey Date"
@@ -210,27 +224,30 @@ const ScheduledSurveys = () => {
         </FormProvider>
       </Modal>
 
-      {/* Cancel Survey Modal */}
       <Modal
         isOpen={isCancelSurveyOpen}
         onClose={() => setIsCancelSurveyOpen(false)}
         title="Cancel Survey"
         footer={
           <>
-            <button
+            <motion.button
               type="button"
               onClick={() => setIsCancelSurveyOpen(false)}
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+              whileTap={{ scale: 0.95 }}
+              aria-label="Cancel cancellation"
             >
               Cancel
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="submit"
               form="cancel-survey-form"
-              className="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600"
+              className="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600 text-sm sm:text-base"
+              whileTap={{ scale: 0.95 }}
+              aria-label="Confirm cancellation"
             >
               Cancel Survey
-            </button>
+            </motion.button>
           </>
         }
       >
@@ -238,6 +255,7 @@ const ScheduledSurveys = () => {
           <form
             id="cancel-survey-form"
             onSubmit={cancelSurveyForm.handleSubmit(onCancelSurveySubmit)}
+            className="space-y-4"
           >
             <Input
               label="Reason for Cancellation"
@@ -247,6 +265,47 @@ const ScheduledSurveys = () => {
             />
           </form>
         </FormProvider>
+      </Modal>
+
+      <Modal
+        isOpen={isPhoneModalOpen}
+        onClose={() => setIsPhoneModalOpen(false)}
+        title="Contact Options"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setIsPhoneModalOpen(false)}
+              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+            >
+              Cancel
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-[#2d4a5e] text-sm sm:text-base">
+            Choose how to contact {selectedEnquiry?.customerName}:
+          </p>
+          <div className="flex flex-col gap-3">
+            <a
+              href={`tel:${selectedEnquiry?.phone}`}
+              className="flex items-center gap-2 bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
+            >
+              <FaPhoneAlt className="w-5 h-5" />
+              Call
+            </a>
+            <a
+              href={`https://wa.me/${selectedEnquiry?.phone}`}
+              className="flex items-center gap-2 bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 text-sm sm:text-base"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <FaWhatsapp className="w-5 h-5" />
+              WhatsApp
+            </a>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -32,10 +32,10 @@ const Layout = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {isOpen && <Sidebar isOpen={isOpen} toggleSidebar={toggleSidebar} />}
-      <div className={`flex flex-col ${isOpen ? "flex-1" : "w-full"}`}>
+      <Sidebar isOpen={isOpen} toggleSidebar={toggleSidebar} />
+      <div className={`flex flex-col flex-1 min-w-0 ${isOpen ? "md:ml-72" : "md:ml-0"} transition-all duration-300`}>
         <Topbar toggleSidebar={toggleSidebar} isOpen={isOpen} activePage={activePage} />
-        <main className={`flex-1 p-4 sm:p-6 ${isOpen ? "" : "w-full"}`}>
+        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
           <Outlet />
         </main>
       </div>

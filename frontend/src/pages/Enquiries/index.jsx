@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { FormProvider, useForm } from "react-hook-form";
+import { FaPhoneAlt, FaWhatsapp, FaEnvelope } from "react-icons/fa";
 import Modal from "../../components/Modal";
 import Input from "../../components/Input";
 
@@ -37,6 +38,7 @@ const Enquiries = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
 
   const addForm = useForm();
@@ -114,136 +116,99 @@ const Enquiries = () => {
     setIsDeleteOpen(true);
   };
 
+  const openPhoneModal = (enquiry) => {
+    setSelectedEnquiry(enquiry);
+    setIsPhoneModalOpen(true);
+  };
+
   return (
-    <div className="container mx-auto px-4 sm:px-6">
-      <div className="mb-4 sm:mb-6">
+    <div className="container mx-auto">
+      <div className="mb-6">
         <button
           onClick={() => setIsAddOpen(true)}
-          className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-xs sm:text-sm font-medium py-1.5 sm:py-2 px-3 sm:px-4 rounded hover:bg-[#4c7085]"
+          className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm sm:text-base font-medium py-2 px-4 rounded hover:bg-[#4c7085]"
         >
           Add New Enquiry
         </button>
       </div>
-      <div className="bg-white shadow rounded-lg">
-        <div className="hidden md:block">
-          <table className="min-w-full">
-            <thead>
-              <tr className="bg-[#4c7085] text-white text-xs sm:text-sm">
-                <th className="p-2 text-left whitespace-nowrap">Sl No</th>
-                <th className="p-2 text-left whitespace-nowrap">Date & Time</th>
-                <th className="p-2 text-left whitespace-nowrap">Customer Name</th>
-                <th className="p-2 text-left whitespace-nowrap">Phone</th>
-                <th className="p-2 text-left whitespace-nowrap">Email</th>
-                <th className="p-2 text-left whitespace-nowrap">Service</th>
-                <th className="p-2 text-left whitespace-nowrap">Message</th>
-                <th className="p-2 text-left whitespace-nowrap">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {enquiries
-                .filter((enquiry) => !enquiry.assigned)
-                .map((enquiry, index) => (
-                  <motion.tr
-                    key={enquiry.id}
-                    variants={rowVariants}
-                    initial="rest"
-                    whileHover="hover"
-                    transition={{ duration: 0.3 }}
+      <div className="space-y-4">
+        {enquiries
+          .filter((enquiry) => !enquiry.assigned)
+          .map((enquiry, index) => (
+            <motion.div
+              key={enquiry.id}
+              className="rounded-lg p-5 bg-white shadow-sm"
+              variants={rowVariants}
+              initial="rest"
+              whileHover="hover"
+            >
+              <div className="space-y-2 text-[#2d4a5e] text-sm sm:text-base">
+                <p><strong>Sl No:</strong> {index + 1}</p>
+                <p><strong>Date & Time:</strong> {enquiry.date}</p>
+                <p><strong>Customer Name:</strong> {enquiry.customerName}</p>
+                <p className="flex items-center gap-2">
+                  <strong>Phone:</strong>
+                  <button
+                    onClick={() => openPhoneModal(enquiry)}
+                    className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
+                    aria-label="Contact via phone or WhatsApp"
                   >
-                    <td className="p-2 text-[#2d4a5e] whitespace-nowrap">{index + 1}</td>
-                    <td className="p-2 text-[#2d4a5e] whitespace-nowrap">{enquiry.date}</td>
-                    <td className="p-2 text-[#2d4a5e] whitespace-nowrap">{enquiry.customerName}</td>
-                    <td className="p-2 text-[#2d4a5e] whitespace-nowrap">{enquiry.phone}</td>
-                    <td className="p-2 text-[#2d4a5e] whitespace-nowrap">{enquiry.email}</td>
-                    <td className="p-2 text-[#2d4a5e] whitespace-nowrap">{enquiry.service}</td>
-                    <td className="p-2 text-[#2d4a5e]">{enquiry.message}</td>
-                    <td className="p-2 flex space-x-2">
-                      <button
-                        onClick={() => openAssignModal(enquiry)}
-                        className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-xs py-1 px-2 rounded hover:bg-[#4c7085]"
-                      >
-                        Assign
-                      </button>
-                      <button
-                        onClick={() => openEditModal(enquiry)}
-                        className="bg-gray-500 text-white text-xs py-1 px-2 rounded hover:bg-gray-600"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(enquiry)}
-                        className="bg-red-500 text-white text-xs py-1 px-2 rounded hover:bg-red-600"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </motion.tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="md:hidden space-y-4 p-4">
-          {enquiries
-            .filter((enquiry) => !enquiry.assigned)
-            .map((enquiry, index) => (
-              <motion.div
-                key={enquiry.id}
-                className="rounded-lg p-4 bg-white shadow-sm"
-                variants={rowVariants}
-                initial="rest"
-                whileHover="hover"
-              >
-                <div className="space-y-2 text-[#2d4a5e] text-xs sm:text-sm">
-                  <p><strong>Sl No:</strong> {index + 1}</p>
-                  <p><strong>Date & Time:</strong> {enquiry.date}</p>
-                  <p><strong>Customer Name:</strong> {enquiry.customerName}</p>
-                  <p><strong>Phone:</strong> {enquiry.phone}</p>
-                  <p><strong>Email:</strong> {enquiry.email}</p>
-                  <p><strong>Service:</strong> {enquiry.service}</p>
-                  <p><strong>Message:</strong> {enquiry.message}</p>
-                  <div className="flex flex-col space-y-2 pt-2">
-                    <button
-                      onClick={() => openAssignModal(enquiry)}
-                      className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-xs py-1.5 px-3 rounded hover:bg-[#4c7085]"
-                    >
-                      Assign
-                    </button>
-                    <button
-                      onClick={() => openEditModal(enquiry)}
-                      className="bg-gray-500 text-white text-xs py-1.5 px-3 rounded hover:bg-gray-600"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => openDeleteModal(enquiry)}
-                      className="bg-red-500 text-white text-xs py-1.5 px-3 rounded hover:bg-red-600"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                    <FaPhoneAlt className="w-3 h-3" /> {enquiry.phone}
+                  </button>
+                </p>
+                <p className="flex items-center gap-2">
+                  <strong>Email:</strong>
+                  <a
+                    href={`mailto:${enquiry.email}`}
+                    className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
+                    aria-label="Email customer"
+                  >
+                    <FaEnvelope className="w-3 h-3" /> {enquiry.email}
+                  </a>
+                </p>
+                <p><strong>Service:</strong> {enquiry.service}</p>
+                <p><strong>Message:</strong> {enquiry.message}</p>
+                <div className="flex flex-wrap gap-2 pt-3">
+                  <button
+                    onClick={() => openAssignModal(enquiry)}
+                    className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded hover:bg-[#4c7085]"
+                  >
+                    Assign
+                  </button>
+                  <button
+                    onClick={() => openEditModal(enquiry)}
+                    className="bg-gray-500 text-white text-sm py-2 px-3 rounded hover:bg-gray-600"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => openDeleteModal(enquiry)}
+                    className="bg-red-500 text-white text-sm py-2 px-3 rounded hover:bg-red-600"
+                  >
+                    Delete
+                  </button>
                 </div>
-              </motion.div>
-            ))}
-        </div>
+              </div>
+            </motion.div>
+          ))}
       </div>
       <Modal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
         title="Add New Enquiry"
-        className="w-full max-w-md mx-4 sm:mx-auto"
         footer={
           <>
             <button
               type="button"
               onClick={() => setIsAddOpen(false)}
-              className="bg-gray-500 text-white py-1.5 sm:py-2 px-3 sm:px-4 rounded hover:bg-gray-600 text-xs sm:text-sm"
+              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="add-enquiry-form"
-              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-1.5 sm:py-2 px-3 sm:px-4 rounded hover:bg-[#4c7085] text-xs sm:text-sm"
+              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
             >
               Add Enquiry
             </button>
@@ -251,7 +216,7 @@ const Enquiries = () => {
         }
       >
         <FormProvider {...addForm}>
-          <form id="add-enquiry-form" onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-3 sm:space-y-4">
+          <form id="add-enquiry-form" onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
             <Input
               label="Customer Name"
               name="customerName"
@@ -301,20 +266,19 @@ const Enquiries = () => {
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         title="Edit Enquiry"
-        className="w-full max-w-md mx-4 sm:mx-auto"
         footer={
           <>
             <button
               type="button"
               onClick={() => setIsEditOpen(false)}
-              className="bg-gray-500 text-white py-1.5 sm:py-2 px-3 sm:px-4 rounded hover:bg-gray-600 text-xs sm:text-sm"
+              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="edit-enquiry-form"
-              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-1.5 sm:py-2 px-3 sm:px-4 rounded hover:bg-[#4c7085] text-xs sm:text-sm"
+              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
             >
               Update Enquiry
             </button>
@@ -322,7 +286,7 @@ const Enquiries = () => {
         }
       >
         <FormProvider {...editForm}>
-          <form id="edit-enquiry-form" onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-3 sm:space-y-4">
+          <form id="edit-enquiry-form" onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
             <Input
               label="Customer Name"
               name="customerName"
@@ -372,20 +336,19 @@ const Enquiries = () => {
         isOpen={isAssignOpen}
         onClose={() => setIsAssignOpen(false)}
         title="Assign Enquiry"
-        className="w-full max-w-md mx-4 sm:mx-auto"
         footer={
           <>
             <button
               type="button"
               onClick={() => setIsAssignOpen(false)}
-              className="bg-gray-500 text-white py-1.5 sm:py-2 px-3 sm:px-4 rounded hover:bg-gray-600 text-xs sm:text-sm"
+              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="assign-enquiry-form"
-              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-1.5 sm:py-2 px-3 sm:px-4 rounded hover:bg-[#4c7085] text-xs sm:text-sm"
+              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
             >
               Assign
             </button>
@@ -393,7 +356,7 @@ const Enquiries = () => {
         }
       >
         <FormProvider {...assignForm}>
-          <form id="assign-enquiry-form" onSubmit={assignForm.handleSubmit(onAssignSubmit)} className="space-y-3 sm:space-y-4">
+          <form id="assign-enquiry-form" onSubmit={assignForm.handleSubmit(onAssignSubmit)} className="space-y-4">
             <Input
               label="Salesperson"
               name="salesperson"
@@ -413,27 +376,66 @@ const Enquiries = () => {
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
         title="Delete Enquiry"
-        className="w-full max-w-md mx-4 sm:mx-auto"
         footer={
           <>
             <button
               onClick={() => setIsDeleteOpen(false)}
-              className="bg-gray-500 text-white py-1.5 sm:py-2 px-3 sm:px-4 rounded hover:bg-gray-600 text-xs sm:text-sm"
+              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
             >
               Cancel
             </button>
             <button
               onClick={onDelete}
-              className="bg-red-500 text-white py-1.5 sm:py-2 px-3 sm:px-4 rounded hover:bg-red-600 text-xs sm:text-sm"
+              className="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600 text-sm sm:text-base"
             >
               Delete
             </button>
           </>
         }
       >
-        <p className="text-[#2d4a5e] text-xs sm:text-sm">
+        <p className="text-[#2d4a5e] text-sm sm:text-base">
           Are you sure you want to delete this enquiry?
         </p>
+      </Modal>
+      <Modal
+        isOpen={isPhoneModalOpen}
+        onClose={() => setIsPhoneModalOpen(false)}
+        title="Contact Options"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setIsPhoneModalOpen(false)}
+              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+            >
+              Cancel
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-[#2d4a5e] text-sm sm:text-base">
+            Choose how to contact {selectedEnquiry?.customerName}:
+          </p>
+          <div className="flex flex-col gap-3">
+            <a
+              href={`tel:${selectedEnquiry?.phone}`}
+              className="flex items-center gap-2 bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
+            >
+              <FaPhoneAlt className="w-5 h-5" />
+              Call
+            </a>
+            <a
+              href={`https://wa.me/${selectedEnquiry?.phone}`}
+              className="flex items-center gap-2 bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 text-sm sm:text-base"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <FaWhatsapp className="w-5 h-5" />
+              WhatsApp
+            </a>
+          </div>
+        </div>
       </Modal>
     </div>
   );
