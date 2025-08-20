@@ -55,10 +55,9 @@ const Enquiries = () => {
   const fetchEnquiries = async () => {
     try {
       setError(null);
-      const params = user?.role === "survey-admin" ? { unassigned: "true" } : { has_survey: "false" };
       const response = await axios.get("http://127.0.0.1:8000/api/contacts/enquiries/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        params,
+        params: { has_survey: "false" },
       });
       setEnquiries(response.data);
     } catch (err) {
@@ -143,32 +142,21 @@ const Enquiries = () => {
   };
 
   const onAssignSubmit = async (data) => {
-      try {
-        setError(null);
-        const response = await axios.patch(
-          `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/`,
-          { salesperson_email: data.salesperson, note: data.note || null },
-          { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-        );
-        setEnquiries((prev) =>
-          prev.map((enquiry) =>
-            enquiry.id === selectedEnquiry.id
-              ? { ...enquiry, salesperson_email: response.data.salesperson_email, note: response.data.note }
-              : enquiry
-          )
-        );
-        setIsAssignOpen(false);
-        assignForm.reset();
-      } catch (err) {
-        console.error("Failed to assign enquiry", err);
-        const errorMessage =
-          err.response?.data?.error ||
-          err.response?.data?.salesperson_email?.[0] ||
-          formatError(err.response?.data) ||
-          "Failed to assign enquiry. Please try again.";
-        setError(errorMessage);
-      }
-    };
+    try {
+      setError(null);
+      await axios.patch(
+        `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/`,
+        { salesperson_email: data.salesperson || null, note: data.note || null },
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      );
+      fetchEnquiries();
+      setIsAssignOpen(false);
+      assignForm.reset();
+    } catch (err) {
+      console.error("Failed to assign enquiry", err);
+      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to assign enquiry. Please try again.");
+    }
+  };
 
   const onDelete = async () => {
     try {
@@ -199,7 +187,7 @@ const Enquiries = () => {
 
   const openAssignModal = (enquiry) => {
     setSelectedEnquiry(enquiry);
-    assignForm.reset({ salesperson: enquiry.salesperson_email || "", note: enquiry.note || "" });
+    assignForm.reset({ salesperson: enquiry.salesperson_email, note: enquiry.note });
     setIsAssignOpen(true);
   };
 
@@ -279,7 +267,9 @@ const Enquiries = () => {
                 <p><strong>Service:</strong> {enquiry.serviceType || "N/A"}</p>
                 <p><strong>Message:</strong> {enquiry.message || "N/A"}</p>
                 <p><strong>Note:</strong> {enquiry.note || "N/A"}</p>
-                <p><strong>Salesperson:</strong> {enquiry.salesperson_email || "Unassigned"}</p>
+                {enquiry.salesperson_email && (
+                  <p><strong>Salesperson:</strong> {enquiry.salesperson_email || "N/A"}</p>
+                )}
                 {user?.role === "survey-admin" && (
                   <div className="flex flex-wrap gap-2 pt-3">
                     <button

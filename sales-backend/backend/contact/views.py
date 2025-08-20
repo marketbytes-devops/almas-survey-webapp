@@ -188,55 +188,44 @@ class EnquiryListCreate(generics.ListCreateAPIView):
 
     def get_permissions(self):
         """
-        Apply IsAdmin permission for GET (listing) requests,
+        Allow authenticated users (sales and survey-admin) for GET (listing) requests,
         AllowAny for POST (creation) requests.
         """
         if self.request.method == "GET":
-            return [IsAdmin()]
+            return [IsAuthenticated()]
         return [AllowAny()]
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        params = self.request.query_params
+        user = self.request.user
+        has_survey = self.request.query_params.get("has_survey")
+        contact_status = self.request.query_params.get("contact_status")
+        unassigned = self.request.query_params.get("unassigned")
+        salesperson_email = self.request.query_params.get("salesperson_email")
 
-        if self.request.user.role == "sales":
-            queryset = queryset.filter(salesperson=self.request.user)
-        elif self.request.user.role == "survey-admin":
-            if params.get("unassigned") == "true":
+        if not user.is_authenticated:
+            return queryset.none()
+
+        if user.role == "sales":
+            queryset = queryset.filter(salesperson=user)
+            if has_survey == "true":
+                queryset = queryset.filter(survey_date__isnull=False)
+            elif has_survey == "false":
+                queryset = queryset.filter(survey_date__isnull=True)
+            if contact_status:
+                queryset = queryset.filter(contact_status=contact_status)
+        elif user.role == "survey-admin":
+            if unassigned == "true":
                 queryset = queryset.filter(salesperson__isnull=True)
+            if salesperson_email:
+                queryset = queryset.filter(salesperson__email__iexact=salesperson_email)
+            if contact_status:
+                queryset = queryset.filter(contact_status=contact_status)
+        else:
+            queryset = queryset.none()
 
-        if params.get("has_survey") == "true":
-            queryset = queryset.filter(survey_date__isnull=False)
-        elif params.get("has_survey") == "false":
-            queryset = queryset.filter(survey_date__isnull=True)
-
-        status = params.get("contact_status")
-        if status:
-            queryset = queryset.filter(contact_status=status)
-
-        start_date = params.get("start_date")
-        end_date = params.get("end_date")
-        if start_date and end_date:
-            try:
-                queryset = queryset.filter(
-                    created_at__date__range=[start_date, end_date]
-                )
-            except ValueError as e:
-                logger.error(f"Invalid date format for filtering enquiries: {str(e)}")
-                return queryset.none()
-
-        search_query = params.get("search")
-        if search_query:
-            queryset = queryset.filter(
-                models.Q(fullName__icontains=search_query)
-                | models.Q(email__icontains=search_query)
-                | models.Q(phoneNumber__icontains=search_query)
-                | models.Q(serviceType__icontains=search_query)
-                | models.Q(message__icontains=search_query)
-            )
-
-        logger.debug(f"Queryset for user {self.request.user.email}: {queryset.count()} enquiries")
-        return queryset.order_by("-created_at")
+        logger.debug(f"Queryset for user {user.email} with params has_survey={has_survey}, contact_status={contact_status}, unassigned={unassigned}, salesperson_email={salesperson_email}: {queryset.count()} results")
+        return queryset
 
     def create(self, request, *args, **kwargs):
         logger.debug(f"Creating enquiry with data: {request.data}")
@@ -300,18 +289,28 @@ class EnquiryListCreate(generics.ListCreateAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    def list(self, request, *args, **kwargs):
+        try:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+            logger.info(f"Listed enquiries for user {request.user.email}: {len(serializer.data)} results")
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Failed to list enquiries for user {request.user.email}: {str(e)}", exc_info=True)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
 class EnquiryRetrieveUpdate(generics.RetrieveUpdateAPIView):
     queryset = Enquiry.objects.all()
     serializer_class = EnquirySerializer
-    permission_classes = [IsAuthenticated] 
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         queryset = super().get_queryset()
         if self.request.user.role == "sales":
             return queryset.filter(salesperson=self.request.user)
         elif self.request.user.role == "survey-admin":
-            return queryset 
-        return queryset.none() 
+            return queryset
+        return queryset.none()
 
     def patch(self, request, *args, **kwargs):
         logger.debug(f"PATCH request for Enquiry ID: {kwargs.get('pk')} with data: {request.data}")
@@ -356,8 +355,16 @@ class EnquiryDeleteAll(generics.GenericAPIView):
 
 class EnquirySchedule(generics.GenericAPIView):
     queryset = Enquiry.objects.all()
-    serializer_class = EnquirySerializer
-    permission_classes = [IsAdmin]
+    serializer_class = EnquirySerializer 
+    permission_classes = [IsAuthenticated] 
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.user.role == "sales":
+            return queryset.filter(salesperson=self.request.user)
+        elif self.request.user.role == "survey-admin":
+            return queryset
+        return queryset.none()
 
     def post(self, request, pk, *args, **kwargs):
         try:
@@ -390,7 +397,15 @@ class EnquirySchedule(generics.GenericAPIView):
 class EnquiryCancelSurvey(generics.GenericAPIView):
     queryset = Enquiry.objects.all()
     serializer_class = EnquirySerializer
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAuthenticated]  
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.user.role == "sales":
+            return queryset.filter(salesperson=self.request.user)
+        elif self.request.user.role == "survey-admin":
+            return queryset
+        return queryset.none()
 
     def post(self, request, pk, *args, **kwargs):
         try:

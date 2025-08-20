@@ -33,18 +33,17 @@ const NewEnquiries = () => {
   ];
 
   useEffect(() => {
-    fetchEnquiries();
+    if (user) {
+      fetchEnquiries();
+    }
   }, [user]);
 
   const fetchEnquiries = async () => {
     try {
       setError(null);
-      const params = {};
-      if (user?.role === "survey-admin") {
-        params.unassigned = "true"; // Show unassigned enquiries for survey-admin
-        params.contact_status = "Not Attended";
-      } else if (user?.role === "sales") {
-        params.has_survey = "true"; // Show assigned enquiries with scheduled surveys for sales
+      const params = { has_survey: "false" };
+      if (user?.role === "sales") {
+        params.salesperson_email = user.email; // Filter by salesperson's email
       }
       const response = await axios.get("http://127.0.0.1:8000/api/contacts/enquiries/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
@@ -53,7 +52,7 @@ const NewEnquiries = () => {
       setEnquiries(response.data);
     } catch (err) {
       console.error("Failed to fetch enquiries", err);
-      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to fetch enquiries. Please try again.");
+      setError(err.response?.data?.error || "Failed to fetch enquiries. Please try again.");
     }
   };
 
@@ -71,7 +70,7 @@ const NewEnquiries = () => {
         `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/`,
         {
           contact_status: data.status,
-          note: data.note,
+          note: data.note || null,
           reached_out_whatsapp: data.reachedOutWhatsApp || false,
           reached_out_email: data.reachedOutEmail || false,
         },
@@ -86,7 +85,7 @@ const NewEnquiries = () => {
       contactStatusForm.reset();
     } catch (err) {
       console.error("Failed to update contact status", err);
-      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to update contact status. Please try again.");
+      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to update contact status. Please try again.");
     }
   };
 
@@ -107,7 +106,7 @@ const NewEnquiries = () => {
       scheduleSurveyForm.reset();
     } catch (err) {
       console.error("Failed to schedule survey", err);
-      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to schedule survey. Please try again.");
+      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to schedule survey. Please try again.");
     }
   };
 
@@ -128,13 +127,18 @@ const NewEnquiries = () => {
       cancelSurveyForm.reset();
     } catch (err) {
       console.error("Failed to cancel survey", err);
-      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to cancel survey. Please try again.");
+      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to cancel survey. Please try again.");
     }
   };
 
   const openContactStatusModal = (enquiry, status) => {
     setSelectedEnquiry({ ...enquiry, status });
-    contactStatusForm.reset({ status });
+    contactStatusForm.reset({
+      status,
+      note: enquiry.note || "",
+      reachedOutWhatsApp: enquiry.reached_out_whatsapp || false,
+      reachedOutEmail: enquiry.reached_out_email || false,
+    });
     setIsContactStatusOpen(true);
   };
 
@@ -164,7 +168,7 @@ const NewEnquiries = () => {
       )}
       {enquiries.length === 0 ? (
         <div className="text-center text-[#2d4a5e] text-sm sm:text-base p-5 bg-white shadow-sm rounded-lg">
-          No Scheduled Surveys Found
+          No New Enquiries Found
         </div>
       ) : (
         <div className="space-y-4">
@@ -179,7 +183,7 @@ const NewEnquiries = () => {
               <div className="space-y-2 text-[#2d4a5e] text-sm sm:text-base">
                 <p><strong>Sl No:</strong> {index + 1}</p>
                 <p><strong>Date & Time:</strong> {new Date(enquiry.created_at).toLocaleString()}</p>
-                <p><strong>Customer Name:</strong> {enquiry.fullName}</p>
+                <p><strong>Customer Name:</strong> {enquiry.fullName || "N/A"}</p>
                 <p className="flex items-center gap-2">
                   <strong>Phone:</strong>
                   {enquiry.phoneNumber ? (
@@ -208,9 +212,9 @@ const NewEnquiries = () => {
                     "N/A"
                   )}
                 </p>
-                <p><strong>Service:</strong> {enquiry.serviceType}</p>
-                <p><strong>Message:</strong> {enquiry.message}</p>
-                <p><strong>Note:</strong> {enquiry.note || "-"}</p>
+                <p><strong>Service:</strong> {enquiry.serviceType || "N/A"}</p>
+                <p><strong>Message:</strong> {enquiry.message || "N/A"}</p>
+                <p><strong>Note:</strong> {enquiry.note || "N/A"}</p>
                 <p><strong>Salesperson:</strong> {enquiry.salesperson_email || "Unassigned"}</p>
                 <p className="flex items-center gap-2">
                   <strong>Survey Date:</strong>
@@ -224,7 +228,7 @@ const NewEnquiries = () => {
                   <select
                     className="p-2 border rounded text-[#2d4a5e] text-sm sm:text-base mt-2"
                     onChange={(e) => openContactStatusModal(enquiry, e.target.value)}
-                    value={enquiry.contact_status}
+                    value={enquiry.contact_status || "Not Attended"}
                   >
                     <option value="Not Attended">Not Attended</option>
                     <option value="Attended">Attended</option>
