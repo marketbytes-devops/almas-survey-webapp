@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Enquiry
 from authapp.models import CustomUser
 import logging
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -92,16 +93,19 @@ class EnquirySerializer(serializers.ModelSerializer):
         logger.debug(f"Updating Enquiry ID: {instance.id} with data: {validated_data}")
         salesperson_email = validated_data.pop('salesperson_email', None)
         validated_data.pop('salesperson', None)
-        if salesperson_email:
-            try:
-                instance.salesperson = CustomUser.objects.get(email=salesperson_email, role='sales')
-            except CustomUser.DoesNotExist:
-                logger.error(f"Salesperson with email {salesperson_email} not found")
-                raise serializers.ValidationError("Salesperson with this email does not exist or is not a sales user.")
-        elif salesperson_email == '':
-            instance.salesperson = None
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        logger.debug(f"Updated Enquiry ID: {instance.id}")
+        with transaction.atomic():
+            if salesperson_email:
+                try:
+                    instance.salesperson = CustomUser.objects.get(email=salesperson_email, role='sales')
+                    logger.info(f"Set salesperson to {salesperson_email} for Enquiry ID: {instance.id}")
+                except CustomUser.DoesNotExist:
+                    logger.error(f"Salesperson with email {salesperson_email} not found")
+                    raise serializers.ValidationError("Salesperson with this email does not exist or is not a sales user.")
+            elif salesperson_email == '':
+                instance.salesperson = None
+                logger.info(f"Cleared salesperson for Enquiry ID: {instance.id}")
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            logger.info(f"Saved Enquiry ID: {instance.id} with salesperson: {instance.salesperson.email if instance.salesperson else None}")
         return instance

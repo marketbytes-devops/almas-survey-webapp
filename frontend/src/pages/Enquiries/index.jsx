@@ -148,8 +148,8 @@ const Enquiries = () => {
   const onAssignSubmit = async (data) => {
     try {
       setError(null);
-      await axios.post(
-        `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/assign/`,
+      await axios.patch(
+        `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/`,
         { salesperson_email: data.salesperson || null, note: data.note || null },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );

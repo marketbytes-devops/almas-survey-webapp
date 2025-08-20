@@ -212,7 +212,7 @@ class EnquiryListCreate(generics.ListCreateAPIView):
         elif params.get("has_survey") == "false":
             queryset = queryset.filter(survey_date__isnull=True)
 
-        # Apply contact_status filter only if provided (e.g., for NewEnquiries.jsx)
+        # Apply contact_status filter only if provided
         status = params.get("contact_status")
         if status:
             queryset = queryset.filter(contact_status=status)
@@ -342,37 +342,6 @@ class EnquiryDeleteAll(generics.GenericAPIView):
                 {"error": "Failed to delete enquiries"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-class EnquiryAssign(generics.GenericAPIView):
-    queryset = Enquiry.objects.all()
-    serializer_class = EnquirySerializer
-    permission_classes = [IsAdmin]
-
-    def post(self, request, pk, *args, **kwargs):
-        try:
-            enquiry = self.get_queryset().get(pk=pk)
-            serializer = self.get_serializer(
-                enquiry,
-                data={
-                    "salesperson_email": request.data.get("salesperson_email"),
-                    "note": request.data.get("note"),
-                },
-                partial=True,
-            )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            logger.info(
-                f"Assigned Enquiry ID: {enquiry.id} to {request.data.get('salesperson_email')}"
-            )
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Enquiry.DoesNotExist:
-            logger.error(f"Enquiry ID {pk} not found")
-            return Response(
-                {"error": "Enquiry not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            logger.error(f"Failed to assign Enquiry ID {pk}: {str(e)}")
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class EnquirySchedule(generics.GenericAPIView):
     queryset = Enquiry.objects.all()
