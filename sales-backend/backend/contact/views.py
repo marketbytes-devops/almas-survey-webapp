@@ -3,7 +3,7 @@ from django.core.mail import send_mail, EmailMultiAlternatives
 from django.conf import settings
 from django.db import models
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 import requests
 from .models import Enquiry
@@ -200,19 +200,16 @@ class EnquiryListCreate(generics.ListCreateAPIView):
         params = self.request.query_params
 
         if self.request.user.role == "sales":
-            # For sales users, show all enquiries assigned to them
             queryset = queryset.filter(salesperson=self.request.user)
         elif self.request.user.role == "survey-admin":
-            # For survey-admin, show unassigned enquiries
-            queryset = queryset.filter(salesperson__isnull=True)
+            if params.get("unassigned") == "true":
+                queryset = queryset.filter(salesperson__isnull=True)
 
-        # Apply additional filters based on query params
         if params.get("has_survey") == "true":
             queryset = queryset.filter(survey_date__isnull=False)
         elif params.get("has_survey") == "false":
             queryset = queryset.filter(survey_date__isnull=True)
 
-        # Apply contact_status filter only if provided
         status = params.get("contact_status")
         if status:
             queryset = queryset.filter(contact_status=status)
@@ -238,9 +235,11 @@ class EnquiryListCreate(generics.ListCreateAPIView):
                 | models.Q(message__icontains=search_query)
             )
 
+        logger.debug(f"Queryset for user {self.request.user.email}: {queryset.count()} enquiries")
         return queryset.order_by("-created_at")
 
     def create(self, request, *args, **kwargs):
+        logger.debug(f"Creating enquiry with data: {request.data}")
         recaptcha_token = request.data.get("recaptchaToken")
         if recaptcha_token:
             try:
@@ -288,6 +287,7 @@ class EnquiryListCreate(generics.ListCreateAPIView):
                 )
 
             headers = self.get_success_headers(serializer.data)
+            logger.info(f"Created enquiry with ID: {serializer.data.get('id')}")
             return Response(
                 serializer.data, status=status.HTTP_201_CREATED, headers=headers
             )
@@ -303,13 +303,24 @@ class EnquiryListCreate(generics.ListCreateAPIView):
 class EnquiryRetrieveUpdate(generics.RetrieveUpdateAPIView):
     queryset = Enquiry.objects.all()
     serializer_class = EnquirySerializer
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAuthenticated] 
 
     def get_queryset(self):
         queryset = super().get_queryset()
         if self.request.user.role == "sales":
             return queryset.filter(salesperson=self.request.user)
-        return queryset
+        elif self.request.user.role == "survey-admin":
+            return queryset 
+        return queryset.none() 
+
+    def patch(self, request, *args, **kwargs):
+        logger.debug(f"PATCH request for Enquiry ID: {kwargs.get('pk')} with data: {request.data}")
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        logger.debug(f"PATCH response for Enquiry ID: {kwargs.get('pk')}: {serializer.data}")
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class EnquiryDelete(generics.DestroyAPIView):
     queryset = Enquiry.objects.all()

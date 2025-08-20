@@ -38,7 +38,7 @@ const Enquiries = () => {
 
   useEffect(() => {
     const script = document.createElement("script");
-    script.src = "https://www.google.com/recaptcha/api.js?render=" + import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+    script.src = `https://www.google.com/recaptcha/api.js?render=${import.meta.env.VITE_RECAPTCHA_SITE_KEY}`;
     script.async = true;
     document.body.appendChild(script);
 
@@ -55,9 +55,10 @@ const Enquiries = () => {
   const fetchEnquiries = async () => {
     try {
       setError(null);
+      const params = user?.role === "survey-admin" ? { unassigned: "true" } : { has_survey: "false" };
       const response = await axios.get("http://127.0.0.1:8000/api/contacts/enquiries/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        params: { has_survey: 'false' },
+        params,
       });
       setEnquiries(response.data);
     } catch (err) {
@@ -104,8 +105,6 @@ const Enquiries = () => {
                 recaptchaToken: token,
                 refererUrl: window.location.href,
                 submittedUrl: window.location.href,
-                salesperson_email: data.salesperson || null,
-                note: data.note || null,
               },
               { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
             );
@@ -131,8 +130,6 @@ const Enquiries = () => {
           email: data.email,
           serviceType: data.service,
           message: data.message,
-          salesperson_email: data.salesperson || null,
-          note: data.note || null,
         },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
@@ -146,21 +143,32 @@ const Enquiries = () => {
   };
 
   const onAssignSubmit = async (data) => {
-    try {
-      setError(null);
-      await axios.patch(
-        `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/`,
-        { salesperson_email: data.salesperson || null, note: data.note || null },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
-      fetchEnquiries();
-      setIsAssignOpen(false);
-      assignForm.reset();
-    } catch (err) {
-      console.error("Failed to assign enquiry", err);
-      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to assign enquiry. Please try again.");
-    }
-  };
+      try {
+        setError(null);
+        const response = await axios.patch(
+          `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/`,
+          { salesperson_email: data.salesperson, note: data.note || null },
+          { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+        );
+        setEnquiries((prev) =>
+          prev.map((enquiry) =>
+            enquiry.id === selectedEnquiry.id
+              ? { ...enquiry, salesperson_email: response.data.salesperson_email, note: response.data.note }
+              : enquiry
+          )
+        );
+        setIsAssignOpen(false);
+        assignForm.reset();
+      } catch (err) {
+        console.error("Failed to assign enquiry", err);
+        const errorMessage =
+          err.response?.data?.error ||
+          err.response?.data?.salesperson_email?.[0] ||
+          formatError(err.response?.data) ||
+          "Failed to assign enquiry. Please try again.";
+        setError(errorMessage);
+      }
+    };
 
   const onDelete = async () => {
     try {
@@ -185,15 +193,13 @@ const Enquiries = () => {
       email: enquiry.email,
       service: enquiry.serviceType,
       message: enquiry.message,
-      salesperson: enquiry.salesperson_email,
-      note: enquiry.note,
     });
     setIsEditOpen(true);
   };
 
   const openAssignModal = (enquiry) => {
     setSelectedEnquiry(enquiry);
-    assignForm.reset({ salesperson: enquiry.salesperson_email, note: enquiry.note });
+    assignForm.reset({ salesperson: enquiry.salesperson_email || "", note: enquiry.note || "" });
     setIsAssignOpen(true);
   };
 
@@ -273,10 +279,8 @@ const Enquiries = () => {
                 <p><strong>Service:</strong> {enquiry.serviceType || "N/A"}</p>
                 <p><strong>Message:</strong> {enquiry.message || "N/A"}</p>
                 <p><strong>Note:</strong> {enquiry.note || "N/A"}</p>
-                {enquiry.salesperson_email && user?.role === "sales" && (
-                  <p><strong>Salesperson:</strong> {enquiry.salesperson_email || "N/A"}</p>
-                )}
-                {user?.role === "survey-admin" && !enquiry.salesperson_email && (
+                <p><strong>Salesperson:</strong> {enquiry.salesperson_email || "Unassigned"}</p>
+                {user?.role === "survey-admin" && (
                   <div className="flex flex-wrap gap-2 pt-3">
                     <button
                       onClick={() => openAssignModal(enquiry)}
@@ -371,18 +375,6 @@ const Enquiries = () => {
               type="textarea"
               rules={{ required: "Message is required" }}
             />
-            <Input
-              label="Salesperson"
-              name="salesperson"
-              type="select"
-              options={salespersons}
-              rules={{ required: false }}
-            />
-            <Input
-              label="Note (Optional)"
-              name="note"
-              type="textarea"
-            />
           </form>
         </FormProvider>
       </Modal>
@@ -454,18 +446,6 @@ const Enquiries = () => {
               type="textarea"
               rules={{ required: "Message is required" }}
             />
-            <Input
-              label="Salesperson"
-              name="salesperson"
-              type="select"
-              options={salespersons}
-              rules={{ required: false }}
-            />
-            <Input
-              label="Note (Optional)"
-              name="note"
-              type="textarea"
-            />
           </form>
         </FormProvider>
       </Modal>
@@ -499,7 +479,7 @@ const Enquiries = () => {
               name="salesperson"
               type="select"
               options={salespersons}
-              rules={{ required: false }}
+              rules={{ required: "Salesperson is required" }}
             />
             <Input
               label="Note (Optional)"
