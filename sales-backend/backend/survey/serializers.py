@@ -12,18 +12,19 @@ class SalespersonSerializer(serializers.ModelSerializer):
         fields = ['value', 'label']
 
 class SurveyEnquirySerializer(serializers.ModelSerializer):
-    customerName = serializers.CharField(source='enquiry.fullName')
-    phone = serializers.CharField(source='enquiry.phoneNumber')
-    email = serializers.CharField(source='enquiry.email')
-    service = serializers.CharField(source='enquiry.serviceType')
-    message = serializers.CharField(source='enquiry.message')
+    customerName = serializers.CharField(source='enquiry.fullName', required=False)
+    phone = serializers.CharField(source='enquiry.phoneNumber', required=False)
+    email = serializers.CharField(source='enquiry.email', required=False)
+    service = serializers.CharField(source='enquiry.serviceType', required=False)
+    message = serializers.CharField(source='enquiry.message', required=False)
     date = serializers.DateTimeField(source='enquiry.created_at', read_only=True)
     salesperson_email = serializers.CharField(source='salesperson.email', allow_null=True, required=False)
+    assigned = serializers.BooleanField(required=False, allow_null=True)
 
     class Meta:
         model = SurveyEnquiry
         fields = ['id', 'date', 'customerName', 'phone', 'email', 'service', 'message', 'assigned', 'salesperson_email', 'note']
-        read_only_fields = ['id', 'date', 'customerName', 'phone', 'email', 'service', 'message', 'assigned']
+        read_only_fields = ['id', 'date']
 
     def validate_salesperson_email(self, value):
         if value:
@@ -34,13 +35,21 @@ class SurveyEnquirySerializer(serializers.ModelSerializer):
             return value
         return None
 
+    def validate(self, data):
+        if self.context['request'].method == 'POST':
+            required_fields = ['customerName', 'phone', 'email', 'service', 'message']
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    raise serializers.ValidationError({field: "This field is required for creating an enquiry."})
+        return data
+
     def create(self, validated_data):
         enquiry_data = {
-            'fullName': validated_data.pop('customerName'),
-            'phoneNumber': validated_data.pop('phone'),
-            'email': validated_data.pop('email'),
-            'serviceType': validated_data.pop('service'),
-            'message': validated_data.pop('message'),
+            'fullName': validated_data.pop('customerName', ''),
+            'phoneNumber': validated_data.pop('phone', ''),
+            'email': validated_data.pop('email', ''),
+            'serviceType': validated_data.pop('service', ''),
+            'message': validated_data.pop('message', ''),
             'recaptchaToken': validated_data.pop('recaptchaToken', ''),
             'refererUrl': validated_data.pop('refererUrl', ''),
             'submittedUrl': validated_data.pop('submittedUrl', ''),
@@ -60,4 +69,12 @@ class SurveyEnquirySerializer(serializers.ModelSerializer):
         for key, value in enquiry_data.items():
             setattr(instance.enquiry, key, value)
         instance.enquiry.save()
-        return super().update(instance, validated_data)
+
+        if 'salesperson_email' in validated_data:
+            instance.salesperson = CustomUser.objects.get(email=validated_data.pop('salesperson_email')) if validated_data['salesperson_email'] else None
+        if 'note' in validated_data:
+            instance.note = validated_data.pop('note')
+        if 'assigned' in validated_data:
+            instance.assigned = validated_data.pop('assigned')
+        instance.save()
+        return instance

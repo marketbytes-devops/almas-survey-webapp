@@ -87,7 +87,7 @@ const Enquiries = () => {
           email: data.email,
           service: data.service,
           message: data.message,
-          recaptchaToken: "", // Add reCAPTCHA logic if needed
+          recaptchaToken: "", 
           refererUrl: window.location.href,
           submittedUrl: window.location.href,
         },
@@ -105,7 +105,7 @@ const Enquiries = () => {
   const onEditSubmit = async (data) => {
     try {
       setError(null);
-      await axios.put(
+      await axios.patch(
         `http://127.0.0.1:8000/api/survey/survey-enquiries/${selectedEnquiry.id}/`,
         {
           customerName: data.customerName,
@@ -146,7 +146,7 @@ const Enquiries = () => {
     try {
       setError(null);
       await axios.delete(
-        `http://127.0.0.1:8000/api/survey/survey-enquiries/${selectedEnquiry.id}/delete/`,
+        `http://127.0.0.1:8000/api/survey/survey-enquiries/${selectedEnquiry.id}/`,
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
       fetchEnquiries();
