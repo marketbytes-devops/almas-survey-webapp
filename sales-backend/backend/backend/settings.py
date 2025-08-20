@@ -52,7 +52,6 @@ INSTALLED_APPS = [
     'add_jobs',
     'contact',
     'documentation',
-    'survey'
 ]
 
 MIDDLEWARE = [

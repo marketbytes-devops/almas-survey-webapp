@@ -37,35 +37,45 @@ const Enquiries = () => {
   ];
 
   useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://www.google.com/recaptcha/api.js?render=" + import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+    script.async = true;
+    document.body.appendChild(script);
+
     fetchEnquiries();
     if (user?.role === "survey-admin") {
       fetchSalespersons();
     }
+
+    return () => {
+      document.body.removeChild(script);
+    };
   }, [user]);
 
   const fetchEnquiries = async () => {
     try {
       setError(null);
-      const response = await axios.get("http://127.0.0.1:8000/api/survey/survey-enquiries/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/contacts/enquiries/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        params: { has_survey: 'false' },
       });
       setEnquiries(response.data);
     } catch (err) {
       console.error("Failed to fetch enquiries", err);
-      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to fetch enquiries. Please try again.");
+      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to fetch enquiries. Please try again.");
     }
   };
 
   const fetchSalespersons = async () => {
     try {
       setError(null);
-      const response = await axios.get("http://127.0.0.1:8000/api/survey/salespersons/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/auth/users/list/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
-      setSalespersons(response.data);
+      setSalespersons(response.data.map((user) => ({ value: user.email, label: user.first_name })));
     } catch (err) {
       console.error("Failed to fetch salespersons", err);
-      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to fetch salespersons. Please try again.");
+      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to fetch salespersons. Please try again.");
     }
   };
 
@@ -79,26 +89,34 @@ const Enquiries = () => {
   const onAddSubmit = async (data) => {
     try {
       setError(null);
-      await axios.post(
-        "http://127.0.0.1:8000/api/survey/survey-enquiries/",
-        {
-          customerName: data.customerName,
-          phone: data.phone,
-          email: data.email,
-          service: data.service,
-          message: data.message,
-          recaptchaToken: "", 
-          refererUrl: window.location.href,
-          submittedUrl: window.location.href,
-        },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
-      fetchEnquiries();
-      setIsAddOpen(false);
-      addForm.reset();
+      await window.grecaptcha.ready(() => {
+        window.grecaptcha
+          .execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, { action: "submit_enquiry" })
+          .then(async (token) => {
+            await axios.post(
+              "http://127.0.0.1:8000/api/contacts/enquiries/",
+              {
+                fullName: data.customerName,
+                phoneNumber: data.phone,
+                email: data.email,
+                serviceType: data.service,
+                message: data.message,
+                recaptchaToken: token,
+                refererUrl: window.location.href,
+                submittedUrl: window.location.href,
+                salesperson_email: data.salesperson || null,
+                note: data.note || null,
+              },
+              { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+            );
+            fetchEnquiries();
+            setIsAddOpen(false);
+            addForm.reset();
+          });
+      });
     } catch (err) {
       console.error("Failed to add enquiry", err);
-      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to add enquiry. Please try again.");
+      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to add enquiry. Please try again.");
     }
   };
 
@@ -106,13 +124,15 @@ const Enquiries = () => {
     try {
       setError(null);
       await axios.patch(
-        `http://127.0.0.1:8000/api/survey/survey-enquiries/${selectedEnquiry.id}/`,
+        `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/`,
         {
-          customerName: data.customerName,
-          phone: data.phone,
+          fullName: data.customerName,
+          phoneNumber: data.phone,
           email: data.email,
-          service: data.service,
+          serviceType: data.service,
           message: data.message,
+          salesperson_email: data.salesperson || null,
+          note: data.note || null,
         },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
@@ -121,7 +141,7 @@ const Enquiries = () => {
       editForm.reset();
     } catch (err) {
       console.error("Failed to update enquiry", err);
-      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to update enquiry. Please try again.");
+      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to update enquiry. Please try again.");
     }
   };
 
@@ -129,8 +149,8 @@ const Enquiries = () => {
     try {
       setError(null);
       await axios.post(
-        `http://127.0.0.1:8000/api/survey/survey-enquiries/${selectedEnquiry.id}/assign/`,
-        { salesperson_email: data.salesperson || null, note: data.note },
+        `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/assign/`,
+        { salesperson_email: data.salesperson || null, note: data.note || null },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
       fetchEnquiries();
@@ -138,7 +158,7 @@ const Enquiries = () => {
       assignForm.reset();
     } catch (err) {
       console.error("Failed to assign enquiry", err);
-      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to assign enquiry. Please try again.");
+      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to assign enquiry. Please try again.");
     }
   };
 
@@ -146,32 +166,34 @@ const Enquiries = () => {
     try {
       setError(null);
       await axios.delete(
-        `http://127.0.0.1:8000/api/survey/survey-enquiries/${selectedEnquiry.id}/`,
+        `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/delete/`,
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
       fetchEnquiries();
       setIsDeleteOpen(false);
     } catch (err) {
       console.error("Failed to delete enquiry", err);
-      setError(err.response?.data?.detail || formatError(err.response?.data) || "Failed to delete enquiry. Please try again.");
+      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to delete enquiry. Please try again.");
     }
   };
 
   const openEditModal = (enquiry) => {
     setSelectedEnquiry(enquiry);
     editForm.reset({
-      customerName: enquiry.customerName,
-      phone: enquiry.phone,
+      customerName: enquiry.fullName,
+      phone: enquiry.phoneNumber,
       email: enquiry.email,
-      service: enquiry.service,
+      service: enquiry.serviceType,
       message: enquiry.message,
+      salesperson: enquiry.salesperson_email,
+      note: enquiry.note,
     });
     setIsEditOpen(true);
   };
 
   const openAssignModal = (enquiry) => {
     setSelectedEnquiry(enquiry);
-    assignForm.reset();
+    assignForm.reset({ salesperson: enquiry.salesperson_email, note: enquiry.note });
     setIsAssignOpen(true);
   };
 
@@ -202,72 +224,87 @@ const Enquiries = () => {
           </button>
         </div>
       )}
-      <div className="space-y-4">
-        {enquiries
-          .filter((enquiry) => (user?.role === "sales" ? enquiry.assigned : !enquiry.assigned))
-          .map((enquiry, index) => (
-            <motion.div
-              key={enquiry.id}
-              className="rounded-lg p-5 bg-white shadow-sm"
-              variants={rowVariants}
-              initial="rest"
-              whileHover="hover"
-            >
-              <div className="space-y-2 text-[#2d4a5e] text-sm sm:text-base">
-                <p><strong>Sl No:</strong> {index + 1}</p>
-                <p><strong>Date & Time:</strong> {new Date(enquiry.date).toLocaleString()}</p>
-                <p><strong>Customer Name:</strong> {enquiry.customerName}</p>
-                <p className="flex items-center gap-2">
-                  <strong>Phone:</strong>
-                  <button
-                    onClick={() => openPhoneModal(enquiry)}
-                    className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
-                    aria-label="Contact via phone or WhatsApp"
-                  >
-                    <FaPhoneAlt className="w-3 h-3" /> {enquiry.phone}
-                  </button>
-                </p>
-                <p className="flex items-center gap-2">
-                  <strong>Email:</strong>
-                  <a
-                    href={`mailto:${enquiry.email}`}
-                    className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
-                    aria-label="Email customer"
-                  >
-                    <FaEnvelope className="w-3 h-3" /> {enquiry.email}
-                  </a>
-                </p>
-                <p><strong>Service:</strong> {enquiry.service}</p>
-                <p><strong>Message:</strong> {enquiry.message}</p>
-                {enquiry.assigned && user?.role === "sales" && (
+      {enquiries.filter((enquiry) => (user?.role === "sales" ? enquiry.salesperson_email : !enquiry.salesperson_email)).length === 0 ? (
+        <div className="text-center text-[#2d4a5e] text-sm sm:text-base p-5 bg-white shadow-sm rounded-lg">
+          No Enquiries Found
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {enquiries
+            .filter((enquiry) => (user?.role === "sales" ? enquiry.salesperson_email : !enquiry.salesperson_email))
+            .map((enquiry, index) => (
+              <motion.div
+                key={enquiry.id}
+                className="rounded-lg p-5 bg-white shadow-sm"
+                variants={rowVariants}
+                initial="rest"
+                whileHover="hover"
+              >
+                <div className="space-y-2 text-[#2d4a5e] text-sm sm:text-base">
+                  <p><strong>Sl No:</strong> {index + 1}</p>
+                  <p><strong>Date & Time:</strong> {new Date(enquiry.created_at).toLocaleString()}</p>
+                  <p><strong>Customer Name:</strong> {enquiry.fullName || "N/A"}</p>
+                  <p className="flex items-center gap-2">
+                    <strong>Phone:</strong>
+                    {enquiry.phoneNumber ? (
+                      <button
+                        onClick={() => openPhoneModal(enquiry)}
+                        className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
+                        aria-label="Contact via phone or WhatsApp"
+                      >
+                        <FaPhoneAlt className="w-3 h-3" /> {enquiry.phoneNumber}
+                      </button>
+                    ) : (
+                      "N/A"
+                    )}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <strong>Email:</strong>
+                    {enquiry.email ? (
+                      <a
+                        href={`mailto:${enquiry.email}`}
+                        className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
+                        aria-label="Email customer"
+                      >
+                        <FaEnvelope className="w-3 h-3" /> {enquiry.email}
+                      </a>
+                    ) : (
+                      "N/A"
+                    )}
+                  </p>
+                  <p><strong>Service:</strong> {enquiry.serviceType || "N/A"}</p>
+                  <p><strong>Message:</strong> {enquiry.message || "N/A"}</p>
                   <p><strong>Note:</strong> {enquiry.note || "N/A"}</p>
-                )}
-                {user?.role === "survey-admin" && !enquiry.assigned && (
-                  <div className="flex flex-wrap gap-2 pt-3">
-                    <button
-                      onClick={() => openAssignModal(enquiry)}
-                      className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded hover:bg-[#4c7085]"
-                    >
-                      Assign
-                    </button>
-                    <button
-                      onClick={() => openEditModal(enquiry)}
-                      className="bg-gray-500 text-white text-sm py-2 px-3 rounded hover:bg-gray-600"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => openDeleteModal(enquiry)}
-                      className="bg-red-500 text-white text-sm py-2 px-3 rounded hover:bg-red-600"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
-      </div>
+                  {enquiry.salesperson_email && user?.role === "sales" && (
+                    <p><strong>Salesperson:</strong> {enquiry.salesperson_email || "N/A"}</p>
+                  )}
+                  {user?.role === "survey-admin" && !enquiry.salesperson_email && (
+                    <div className="flex flex-wrap gap-2 pt-3">
+                      <button
+                        onClick={() => openAssignModal(enquiry)}
+                        className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded hover:bg-[#4c7085]"
+                      >
+                        Assign
+                      </button>
+                      <button
+                        onClick={() => openEditModal(enquiry)}
+                        className="bg-gray-500 text-white text-sm py-2 px-3 rounded hover:bg-gray-600"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => openDeleteModal(enquiry)}
+                        className="bg-red-500 text-white text-sm py-2 px-3 rounded hover:bg-red-600"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+        </div>
+      )}
       <Modal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
@@ -335,6 +372,18 @@ const Enquiries = () => {
               name="message"
               type="textarea"
               rules={{ required: "Message is required" }}
+            />
+            <Input
+              label="Salesperson"
+              name="salesperson"
+              type="select"
+              options={salespersons}
+              rules={{ required: false }}
+            />
+            <Input
+              label="Note (Optional)"
+              name="note"
+              type="textarea"
             />
           </form>
         </FormProvider>
@@ -406,6 +455,18 @@ const Enquiries = () => {
               name="message"
               type="textarea"
               rules={{ required: "Message is required" }}
+            />
+            <Input
+              label="Salesperson"
+              name="salesperson"
+              type="select"
+              options={salespersons}
+              rules={{ required: false }}
+            />
+            <Input
+              label="Note (Optional)"
+              name="note"
+              type="textarea"
             />
           </form>
         </FormProvider>
@@ -493,25 +554,31 @@ const Enquiries = () => {
       >
         <div className="space-y-4">
           <p className="text-[#2d4a5e] text-sm sm:text-base">
-            Choose how to contact {selectedEnquiry?.customerName}:
+            Choose how to contact {selectedEnquiry?.fullName || "N/A"}:
           </p>
           <div className="flex flex-col gap-3">
-            <a
-              href={`tel:${selectedEnquiry?.phone}`}
-              className="flex items-center gap-2 bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
-            >
-              <FaPhoneAlt className="w-5 h-5" />
-              Call
-            </a>
-            <a
-              href={`https://wa.me/${selectedEnquiry?.phone}`}
-              className="flex items-center gap-2 bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 text-sm sm:text-base"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <FaWhatsapp className="w-5 h-5" />
-              WhatsApp
-            </a>
+            {selectedEnquiry?.phoneNumber ? (
+              <>
+                <a
+                  href={`tel:${selectedEnquiry.phoneNumber}`}
+                  className="flex items-center gap-2 bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
+                >
+                  <FaPhoneAlt className="w-5 h-5" />
+                  Call
+                </a>
+                <a
+                  href={`https://wa.me/${selectedEnquiry.phoneNumber}`}
+                  className="flex items-center gap-2 bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 text-sm sm:text-base"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <FaWhatsapp className="w-5 h-5" />
+                  WhatsApp
+                </a>
+              </>
+            ) : (
+              <p className="text-[#2d4a5e] text-sm sm:text-base">No phone number available</p>
+            )}
           </div>
         </div>
       </Modal>
