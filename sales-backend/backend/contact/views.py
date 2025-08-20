@@ -20,7 +20,6 @@ SERVICE_TYPE_DISPLAY = {
     "logistics": "Logistics",
 }
 
-
 def send_enquiry_emails(enquiry_data):
     service_type_display = SERVICE_TYPE_DISPLAY.get(
         enquiry_data["serviceType"], enquiry_data["serviceType"]
@@ -122,7 +121,6 @@ def send_enquiry_emails(enquiry_data):
         logger.error(f"Failed to send enquiry emails: {str(e)}", exc_info=True)
         raise
 
-
 def send_survey_email(enquiry, action, survey_date=None, reason=None):
     """Send email notifications for survey scheduling or cancellation."""
     from_email = settings.DEFAULT_FROM_EMAIL
@@ -184,7 +182,6 @@ def send_survey_email(enquiry, action, survey_date=None, reason=None):
         logger.error(f"Failed to send survey {action} email: {str(e)}", exc_info=True)
         raise
 
-
 class EnquiryListCreate(generics.ListCreateAPIView):
     queryset = Enquiry.objects.all()
     serializer_class = EnquirySerializer
@@ -203,18 +200,22 @@ class EnquiryListCreate(generics.ListCreateAPIView):
         params = self.request.query_params
 
         if self.request.user.role == "sales":
+            # For sales users, show all enquiries assigned to them
             queryset = queryset.filter(salesperson=self.request.user)
         elif self.request.user.role == "survey-admin":
+            # For survey-admin, show unassigned enquiries
             queryset = queryset.filter(salesperson__isnull=True)
 
-        status = params.get("contact_status")
-        if status:
-            queryset = queryset.filter(contact_status=status)
-
+        # Apply additional filters based on query params
         if params.get("has_survey") == "true":
             queryset = queryset.filter(survey_date__isnull=False)
         elif params.get("has_survey") == "false":
             queryset = queryset.filter(survey_date__isnull=True)
+
+        # Apply contact_status filter only if provided (e.g., for NewEnquiries.jsx)
+        status = params.get("contact_status")
+        if status:
+            queryset = queryset.filter(contact_status=status)
 
         start_date = params.get("start_date")
         end_date = params.get("end_date")
@@ -238,7 +239,6 @@ class EnquiryListCreate(generics.ListCreateAPIView):
             )
 
         return queryset.order_by("-created_at")
-
 
     def create(self, request, *args, **kwargs):
         recaptcha_token = request.data.get("recaptchaToken")
@@ -300,30 +300,6 @@ class EnquiryListCreate(generics.ListCreateAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        try:
-            self.perform_create(serializer)
-            enquiry_data = serializer.validated_data
-            if not request.user.is_authenticated or request.user.role != "survey-admin":
-                send_enquiry_emails(enquiry_data)
-
-            headers = self.get_success_headers(serializer.data)
-            return Response(
-                serializer.data, status=status.HTTP_201_CREATED, headers=headers
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to process enquiry: {str(e)}", exc_info=True)
-            return Response(
-                {
-                    "error": "An error occurred while processing your enquiry. Please try again later."
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-
 class EnquiryRetrieveUpdate(generics.RetrieveUpdateAPIView):
     queryset = Enquiry.objects.all()
     serializer_class = EnquirySerializer
@@ -334,7 +310,6 @@ class EnquiryRetrieveUpdate(generics.RetrieveUpdateAPIView):
         if self.request.user.role == "sales":
             return queryset.filter(salesperson=self.request.user)
         return queryset
-
 
 class EnquiryDelete(generics.DestroyAPIView):
     queryset = Enquiry.objects.all()
@@ -349,7 +324,6 @@ class EnquiryDelete(generics.DestroyAPIView):
         except Exception as e:
             logger.error(f"Failed to delete Enquiry ID: {instance.id}: {str(e)}")
             raise
-
 
 class EnquiryDeleteAll(generics.GenericAPIView):
     permission_classes = [IsAdmin]
@@ -368,7 +342,6 @@ class EnquiryDeleteAll(generics.GenericAPIView):
                 {"error": "Failed to delete enquiries"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
 
 class EnquiryAssign(generics.GenericAPIView):
     queryset = Enquiry.objects.all()
@@ -400,7 +373,6 @@ class EnquiryAssign(generics.GenericAPIView):
         except Exception as e:
             logger.error(f"Failed to assign Enquiry ID {pk}: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 class EnquirySchedule(generics.GenericAPIView):
     queryset = Enquiry.objects.all()
@@ -434,7 +406,6 @@ class EnquirySchedule(generics.GenericAPIView):
         except Exception as e:
             logger.error(f"Failed to schedule survey for Enquiry ID {pk}: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 class EnquiryCancelSurvey(generics.GenericAPIView):
     queryset = Enquiry.objects.all()

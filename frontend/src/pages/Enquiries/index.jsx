@@ -72,7 +72,7 @@ const Enquiries = () => {
       const response = await axios.get("http://127.0.0.1:8000/api/auth/users/list/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
-      setSalespersons(response.data.map((user) => ({ value: user.email, label: user.first_name })));
+      setSalespersons(response.data.map((user) => ({ value: user.email, label: user.name })));
     } catch (err) {
       console.error("Failed to fetch salespersons", err);
       setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to fetch salespersons. Please try again.");
@@ -224,85 +224,83 @@ const Enquiries = () => {
           </button>
         </div>
       )}
-      {enquiries.filter((enquiry) => (user?.role === "sales" ? enquiry.salesperson_email : !enquiry.salesperson_email)).length === 0 ? (
+      {enquiries.length === 0 ? (
         <div className="text-center text-[#2d4a5e] text-sm sm:text-base p-5 bg-white shadow-sm rounded-lg">
           No Enquiries Found
         </div>
       ) : (
         <div className="space-y-4">
-          {enquiries
-            .filter((enquiry) => (user?.role === "sales" ? enquiry.salesperson_email : !enquiry.salesperson_email))
-            .map((enquiry, index) => (
-              <motion.div
-                key={enquiry.id}
-                className="rounded-lg p-5 bg-white shadow-sm"
-                variants={rowVariants}
-                initial="rest"
-                whileHover="hover"
-              >
-                <div className="space-y-2 text-[#2d4a5e] text-sm sm:text-base">
-                  <p><strong>Sl No:</strong> {index + 1}</p>
-                  <p><strong>Date & Time:</strong> {new Date(enquiry.created_at).toLocaleString()}</p>
-                  <p><strong>Customer Name:</strong> {enquiry.fullName || "N/A"}</p>
-                  <p className="flex items-center gap-2">
-                    <strong>Phone:</strong>
-                    {enquiry.phoneNumber ? (
-                      <button
-                        onClick={() => openPhoneModal(enquiry)}
-                        className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
-                        aria-label="Contact via phone or WhatsApp"
-                      >
-                        <FaPhoneAlt className="w-3 h-3" /> {enquiry.phoneNumber}
-                      </button>
-                    ) : (
-                      "N/A"
-                    )}
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <strong>Email:</strong>
-                    {enquiry.email ? (
-                      <a
-                        href={`mailto:${enquiry.email}`}
-                        className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
-                        aria-label="Email customer"
-                      >
-                        <FaEnvelope className="w-3 h-3" /> {enquiry.email}
-                      </a>
-                    ) : (
-                      "N/A"
-                    )}
-                  </p>
-                  <p><strong>Service:</strong> {enquiry.serviceType || "N/A"}</p>
-                  <p><strong>Message:</strong> {enquiry.message || "N/A"}</p>
-                  <p><strong>Note:</strong> {enquiry.note || "N/A"}</p>
-                  {enquiry.salesperson_email && user?.role === "sales" && (
-                    <p><strong>Salesperson:</strong> {enquiry.salesperson_email || "N/A"}</p>
+          {enquiries.map((enquiry, index) => (
+            <motion.div
+              key={enquiry.id}
+              className="rounded-lg p-5 bg-white shadow-sm"
+              variants={rowVariants}
+              initial="rest"
+              whileHover="hover"
+            >
+              <div className="space-y-2 text-[#2d4a5e] text-sm sm:text-base">
+                <p><strong>Sl No:</strong> {index + 1}</p>
+                <p><strong>Date & Time:</strong> {new Date(enquiry.created_at).toLocaleString()}</p>
+                <p><strong>Customer Name:</strong> {enquiry.fullName || "N/A"}</p>
+                <p className="flex items-center gap-2">
+                  <strong>Phone:</strong>
+                  {enquiry.phoneNumber ? (
+                    <button
+                      onClick={() => openPhoneModal(enquiry)}
+                      className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
+                      aria-label="Contact via phone or WhatsApp"
+                    >
+                      <FaPhoneAlt className="w-3 h-3" /> {enquiry.phoneNumber}
+                    </button>
+                  ) : (
+                    "N/A"
                   )}
-                  {user?.role === "survey-admin" && !enquiry.salesperson_email && (
-                    <div className="flex flex-wrap gap-2 pt-3">
-                      <button
-                        onClick={() => openAssignModal(enquiry)}
-                        className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded hover:bg-[#4c7085]"
-                      >
-                        Assign
-                      </button>
-                      <button
-                        onClick={() => openEditModal(enquiry)}
-                        className="bg-gray-500 text-white text-sm py-2 px-3 rounded hover:bg-gray-600"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(enquiry)}
-                        className="bg-red-500 text-white text-sm py-2 px-3 rounded hover:bg-red-600"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                </p>
+                <p className="flex items-center gap-2">
+                  <strong>Email:</strong>
+                  {enquiry.email ? (
+                    <a
+                      href={`mailto:${enquiry.email}`}
+                      className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
+                      aria-label="Email customer"
+                    >
+                      <FaEnvelope className="w-3 h-3" /> {enquiry.email}
+                    </a>
+                  ) : (
+                    "N/A"
                   )}
-                </div>
-              </motion.div>
-            ))}
+                </p>
+                <p><strong>Service:</strong> {enquiry.serviceType || "N/A"}</p>
+                <p><strong>Message:</strong> {enquiry.message || "N/A"}</p>
+                <p><strong>Note:</strong> {enquiry.note || "N/A"}</p>
+                {enquiry.salesperson_email && user?.role === "sales" && (
+                  <p><strong>Salesperson:</strong> {enquiry.salesperson_email || "N/A"}</p>
+                )}
+                {user?.role === "survey-admin" && !enquiry.salesperson_email && (
+                  <div className="flex flex-wrap gap-2 pt-3">
+                    <button
+                      onClick={() => openAssignModal(enquiry)}
+                      className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded hover:bg-[#4c7085]"
+                    >
+                      Assign
+                    </button>
+                    <button
+                      onClick={() => openEditModal(enquiry)}
+                      className="bg-gray-500 text-white text-sm py-2 px-3 rounded hover:bg-gray-600"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => openDeleteModal(enquiry)}
+                      className="bg-red-500 text-white text-sm py-2 px-3 rounded hover:bg-red-600"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ))}
         </div>
       )}
       <Modal

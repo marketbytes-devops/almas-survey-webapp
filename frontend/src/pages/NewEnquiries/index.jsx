@@ -37,9 +37,13 @@ const NewEnquiries = () => {
   const fetchEnquiries = async () => {
     try {
       setError(null);
+      const params = { has_survey: 'false' };
+      if (user?.role === "survey-admin") {
+        params.contact_status = 'Not Attended';
+      }
       const response = await axios.get("http://127.0.0.1:8000/api/contacts/enquiries/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        params: { has_survey: 'false', contact_status: 'Not Attended' }
+        params,
       });
       setEnquiries(response.data);
     } catch (err) {
@@ -62,7 +66,7 @@ const NewEnquiries = () => {
         `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/`,
         {
           contact_status: data.status,
-          contact_note: data.note,
+          note: data.note,
           reached_out_whatsapp: data.reachedOutWhatsApp || false,
           reached_out_email: data.reachedOutEmail || false,
         },

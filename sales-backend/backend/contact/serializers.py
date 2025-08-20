@@ -53,11 +53,13 @@ class EnquirySerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """
-        Ensure at least one field (fullName, phoneNumber, email, serviceType, message) is provided.
+        Ensure at least one field (fullName, phoneNumber, email, serviceType, message) is provided for creation.
+        Skip this validation for partial updates (e.g., assign endpoint).
         """
-        fields = ['fullName', 'phoneNumber', 'email', 'serviceType', 'message']
-        if not any(data.get(field) for field in fields):
-            raise serializers.ValidationError("At least one of fullName, phoneNumber, email, serviceType, or message must be provided.")
+        if not self.partial:  # Only enforce for creation, not partial updates
+            fields = ['fullName', 'phoneNumber', 'email', 'serviceType', 'message']
+            if not any(data.get(field) for field in fields):
+                raise serializers.ValidationError("At least one of fullName, phoneNumber, email, serviceType, or message must be provided.")
         logger.debug(f"Validated data: {data}")
         return data
 
@@ -67,12 +69,21 @@ class EnquirySerializer(serializers.ModelSerializer):
         """
         logger.debug(f"Creating enquiry with validated data: {validated_data}")
         salesperson_email = validated_data.pop('salesperson_email', None)
+        validated_data.pop('salesperson', None)
         salesperson = None
         if salesperson_email:
-            salesperson = CustomUser.objects.get(email=salesperson_email, role='sales')
-        enquiry = Enquiry.objects.create(salesperson=salesperson, **validated_data)
-        logger.debug(f"Created Enquiry ID: {enquiry.id}")
-        return enquiry
+            try:
+                salesperson = CustomUser.objects.get(email=salesperson_email, role='sales')
+            except CustomUser.DoesNotExist:
+                logger.error(f"Salesperson with email {salesperson_email} not found")
+                raise serializers.ValidationError("Salesperson with this email does not exist or is not a sales user.")
+        try:
+            enquiry = Enquiry.objects.create(salesperson=salesperson, **validated_data)
+            logger.debug(f"Created Enquiry ID: {enquiry.id}")
+            return enquiry
+        except Exception as e:
+            logger.error(f"Failed to create enquiry: {str(e)}", exc_info=True)
+            raise
 
     def update(self, instance, validated_data):
         """
@@ -80,8 +91,13 @@ class EnquirySerializer(serializers.ModelSerializer):
         """
         logger.debug(f"Updating Enquiry ID: {instance.id} with data: {validated_data}")
         salesperson_email = validated_data.pop('salesperson_email', None)
+        validated_data.pop('salesperson', None)
         if salesperson_email:
-            instance.salesperson = CustomUser.objects.get(email=salesperson_email, role='sales')
+            try:
+                instance.salesperson = CustomUser.objects.get(email=salesperson_email, role='sales')
+            except CustomUser.DoesNotExist:
+                logger.error(f"Salesperson with email {salesperson_email} not found")
+                raise serializers.ValidationError("Salesperson with this email does not exist or is not a sales user.")
         elif salesperson_email == '':
             instance.salesperson = None
         for attr, value in validated_data.items():
