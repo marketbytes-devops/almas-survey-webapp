@@ -32,11 +32,17 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const adminNavItems = [
     { to: "/users", label: "Users", permission: "users" },
     { to: "/permissions", label: "Permissions", permission: "permissions" },
+    { to: "/roles", label: "Roles", permission: "roles" },
   ];
 
-  const navItems = user?.role === "survey-admin"
-    ? allNavItems
-    : allNavItems.filter(item => user?.permissions.includes(item.permission));
+  // Filter navigation items based on user permissions
+  const navItems = user?.permissions
+    ? allNavItems.filter(item => user.permissions.includes(item.permission))
+    : [];
+
+  const adminItems = user?.permissions
+    ? adminNavItems.filter(item => user.permissions.includes(item.permission))
+    : [];
 
   navItems.sort((a, b) => a.label.localeCompare(b.label));
 
@@ -124,11 +130,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   </NavLink>
                 </li>
               ))}
-              {user.role === "survey-admin" && (
+              {adminItems.length > 0 && (
                 <li key="user-management">
                   <Dropdown
                     title="User Management"
-                    items={adminNavItems}
+                    items={adminItems}
                     isOpen={dropdownOpen}
                     toggleDropdown={() => setDropdownOpen(!dropdownOpen)}
                   />

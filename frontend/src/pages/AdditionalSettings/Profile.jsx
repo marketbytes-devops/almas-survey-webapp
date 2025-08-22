@@ -9,13 +9,34 @@ const Profile = () => {
   const { user } = useAuth();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [userData, setUserData] = useState(null);
 
   useEffect(() => {
     if (user) {
-      reset({
-        name: user.name,
-        email: user.email,
-      });
+      const fetchUserData = async () => {
+        try {
+          const response = await axios.get(`http://127.0.0.1:8000/api/auth/users/list/`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          });
+          const currentUser = response.data.find(u => u.email === user.email);
+          if (currentUser) {
+            const permResponse = await axios.get(`http://127.0.0.1:8000/api/auth/permissions/${currentUser.id}/`, {
+              headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+            });
+            setUserData({
+              ...currentUser,
+              permissions: permResponse.data.permissions || [],
+            });
+            reset({
+              name: currentUser.name,
+              email: currentUser.email,
+            });
+          }
+        } catch (err) {
+          console.error("Failed to fetch user data", err);
+        }
+      };
+      fetchUserData();
     }
   }, [user, reset]);
 
@@ -28,18 +49,28 @@ const Profile = () => {
       );
       setMessage("Password changed successfully");
       setError("");
+      reset({ current_password: "", new_password: "" });
     } catch (err) {
       setError("Failed to change password");
       setMessage("");
     }
   };
 
+  if (!user || !user.permissions.includes("profile")) {
+    return <div className="text-[#2d4a5e] text-center">Access denied. You need the 'profile' permission to view this page.</div>;
+  }
+
+  if (!userData) {
+    return <div className="text-[#2d4a5e] text-center">Loading...</div>;
+  }
+
   return (
     <div className="container mx-auto">
       <div className="bg-white p-6 rounded-lg shadow-sm">
-        <p className="text-[#2d4a5e] mb-4"><strong>Name:</strong> {user.name}</p>
-        <p className="text-[#2d4a5e] mb-4"><strong>Email:</strong> {user.email}</p>
-        <p className="text-[#2d4a5e] mb-4"><strong>Role:</strong> {user.role}</p>
+        <h2 className="text-2xl font-semibold text-[#2d4a5e] mb-4">User Profile</h2>
+        <p className="text-[#2d4a5e] mb-4"><strong>Name:</strong> {userData.name}</p>
+        <p className="text-[#2d4a5e] mb-4"><strong>Email:</strong> {userData.email}</p>
+        <p className="text-[#2d4a5e] mb-4"><strong>Role:</strong> {userData.roles.join(", ") || "None"}</p>
         <h3 className="text-xl font-semibold text-[#2d4a5e] mb-4">Change Password</h3>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input

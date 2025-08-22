@@ -15,7 +15,7 @@ const Login = () => {
     try {
       const response = await axios.post("http://127.0.0.1:8000/api/auth/login/", data);
       login(
-        { id: response.data.id, email: data.email, role: response.data.role },
+        { id: response.data.id, email: data.email, roles: response.data.roles },
         response.data.access,
         response.data.refresh
       );

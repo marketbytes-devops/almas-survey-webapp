@@ -23,16 +23,30 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.get(`http://127.0.0.1:8000/api/auth/permissions/${userData.id}/`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      userData.permissions = response.data.permissions || [];
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
+      const updatedUserData = {
+        id: userData.id,
+        name: userData.name || "Unknown User",
+        email: userData.email,
+        roles: response.data.roles || userData.roles || [],
+        permissions: response.data.permissions || [],
+        enable_email_receiver: userData.enable_email_receiver || false,
+      };
+      setUser(updatedUserData);
+      localStorage.setItem("user", JSON.stringify(updatedUserData));
       localStorage.setItem("token", accessToken);
       localStorage.setItem("refresh_token", refreshToken);
     } catch (err) {
       console.error("Failed to fetch permissions", err);
-      userData.permissions = [];
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
+      const fallbackUserData = {
+        id: userData.id,
+        name: userData.name || "Unknown User",
+        email: userData.email,
+        roles: userData.roles || [],
+        permissions: [],
+        enable_email_receiver: userData.enable_email_receiver || false,
+      };
+      setUser(fallbackUserData);
+      localStorage.setItem("user", JSON.stringify(fallbackUserData));
       localStorage.setItem("token", accessToken);
       localStorage.setItem("refresh_token", refreshToken);
     }
@@ -58,8 +72,33 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const assignRole = async (roleName, email) => {
+    try {
+      const response = await axios.post(
+        `http://127.0.0.1:8000/api/auth/roles/${encodeURIComponent(roleName)}/${encodeURIComponent(email)}/`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        }
+      );
+      if (user && user.email === email) {
+        const updatedUser = { 
+          ...user, 
+          roles: response.data.user.roles || [],
+          enable_email_receiver: response.data.user.enable_email_receiver || user.enable_email_receiver
+        };
+        setUser(updatedUser);
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+      }
+      return response.data;
+    } catch (err) {
+      console.error("Failed to assign role:", err);
+      throw err;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, assignRole, loading }}>
       {children}
     </AuthContext.Provider>
   );

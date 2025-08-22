@@ -26,6 +26,14 @@ const NewEnquiries = () => {
   const scheduleSurveyForm = useForm();
   const cancelSurveyForm = useForm();
 
+  const serviceOptions = [
+    { value: "localMove", label: "Local Move" },
+    { value: "internationalMove", label: "International Move" },
+    { value: "carExport", label: "Car Import and Export" },
+    { value: "storageServices", label: "Storage Services" },
+    { value: "logistics", label: "Logistics" },
+  ];
+
   const surveySlots = [
     { value: "2025-08-20T09:00:00", label: "2025-08-20 09:00 AM" },
     { value: "2025-08-20T14:00:00", label: "2025-08-20 02:00 PM" },
@@ -33,34 +41,22 @@ const NewEnquiries = () => {
   ];
 
   useEffect(() => {
-    if (user) {
-      fetchEnquiries();
-    }
+    if (!user || !user.permissions.includes("dashboard")) return;
+    fetchEnquiries();
   }, [user]);
 
   const fetchEnquiries = async () => {
     try {
       setError(null);
-      const params = { has_survey: "false" };
-      if (user?.role === "sales") {
-        params.salesperson_email = user.email; // Filter by salesperson's email
-      }
       const response = await axios.get("http://127.0.0.1:8000/api/contacts/enquiries/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        params,
+        params: { assigned_user_email: user.email }, // Filter by assigned user
       });
-      setEnquiries(response.data);
+      setEnquiries(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
-      console.error("Failed to fetch enquiries", err);
-      setError(err.response?.data?.error || "Failed to fetch enquiries. Please try again.");
+      setEnquiries([]);
+      setError(err.response?.data?.error || "Failed to fetch assigned enquiries. Please try again.");
     }
-  };
-
-  const formatError = (errorData) => {
-    if (!errorData) return null;
-    return Object.entries(errorData)
-      .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(", ") : errors}`)
-      .join("; ");
   };
 
   const onContactStatusSubmit = async (data) => {
@@ -76,16 +72,20 @@ const NewEnquiries = () => {
         },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
-      setEnquiries((prev) =>
-        prev.map((enquiry) =>
-          enquiry.id === selectedEnquiry.id ? { ...enquiry, ...response.data } : enquiry
+      setEnquiries(prev =>
+        prev.map(e =>
+          e.id === selectedEnquiry.id ? { ...e, ...response.data } : e
         )
       );
       setIsContactStatusOpen(false);
       contactStatusForm.reset();
     } catch (err) {
-      console.error("Failed to update contact status", err);
-      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to update contact status. Please try again.");
+      const errorMessage = err.response?.data
+        ? Object.entries(err.response.data)
+            .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`)
+            .join("; ")
+        : err.message || "Failed to update contact status.";
+      setError(errorMessage);
     }
   };
 
@@ -97,16 +97,16 @@ const NewEnquiries = () => {
         { survey_date: data.surveyDate },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
-      setEnquiries((prev) =>
-        prev.map((enquiry) =>
-          enquiry.id === selectedEnquiry.id ? { ...enquiry, survey_date: response.data.survey_date } : enquiry
+      setEnquiries(prev =>
+        prev.map(e =>
+          e.id === selectedEnquiry.id ? { ...e, survey_date: response.data.survey_date } : e
         )
       );
       setIsScheduleSurveyOpen(false);
       scheduleSurveyForm.reset();
     } catch (err) {
-      console.error("Failed to schedule survey", err);
-      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to schedule survey. Please try again.");
+      const errorMessage = err.response?.data?.error || "Failed to schedule survey.";
+      setError(errorMessage);
     }
   };
 
@@ -118,16 +118,16 @@ const NewEnquiries = () => {
         { reason: data.reason },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
-      setEnquiries((prev) =>
-        prev.map((enquiry) =>
-          enquiry.id === selectedEnquiry.id ? { ...enquiry, survey_date: null } : enquiry
+      setEnquiries(prev =>
+        prev.map(e =>
+          e.id === selectedEnquiry.id ? { ...e, survey_date: null } : e
         )
       );
       setIsCancelSurveyOpen(false);
       cancelSurveyForm.reset();
     } catch (err) {
-      console.error("Failed to cancel survey", err);
-      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to cancel survey. Please try again.");
+      const errorMessage = err.response?.data?.error || "Failed to cancel survey.";
+      setError(errorMessage);
     }
   };
 
@@ -159,16 +159,18 @@ const NewEnquiries = () => {
     setIsPhoneModalOpen(true);
   };
 
+  if (!user || !user.permissions.includes("dashboard")) {
+    return <div className="text-[#2d4a5e] text-center">Access denied. You need the 'dashboard' permission to view assigned enquiries.</div>;
+  }
+
   return (
     <div className="container mx-auto">
       {error && (
-        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">
-          {error}
-        </div>
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">{error}</div>
       )}
       {enquiries.length === 0 ? (
         <div className="text-center text-[#2d4a5e] text-sm sm:text-base p-5 bg-white shadow-sm rounded-lg">
-          No New Enquiries Found
+          No Assigned Enquiries Found
         </div>
       ) : (
         <div className="space-y-4">
@@ -189,33 +191,27 @@ const NewEnquiries = () => {
                   {enquiry.phoneNumber ? (
                     <button
                       onClick={() => openPhoneModal(enquiry)}
-                      className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
-                      aria-label="Contact via phone or WhatsApp"
+                      className="flex items-center gap-2 text-[#4c7085]"
                     >
                       <FaPhoneAlt className="w-3 h-3" /> {enquiry.phoneNumber}
                     </button>
-                  ) : (
-                    "N/A"
-                  )}
+                  ) : "N/A"}
                 </p>
                 <p className="flex items-center gap-2">
                   <strong>Email:</strong>
                   {enquiry.email ? (
                     <a
                       href={`mailto:${enquiry.email}`}
-                      className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
-                      aria-label="Email customer"
+                      className="flex items-center gap-2 text-[#4c7085]"
                     >
                       <FaEnvelope className="w-3 h-3" /> {enquiry.email}
                     </a>
-                  ) : (
-                    "N/A"
-                  )}
+                  ) : "N/A"}
                 </p>
-                <p><strong>Service:</strong> {enquiry.serviceType || "N/A"}</p>
+                <p><strong>Service:</strong> {serviceOptions.find(opt => opt.value === enquiry.serviceType)?.label || enquiry.serviceType || "N/A"}</p>
                 <p><strong>Message:</strong> {enquiry.message || "N/A"}</p>
                 <p><strong>Note:</strong> {enquiry.note || "N/A"}</p>
-                <p><strong>Salesperson:</strong> {enquiry.salesperson_email || "Unassigned"}</p>
+                <p><strong>Assigned To:</strong> {enquiry.assigned_user_email || "Unassigned"}</p>
                 <p className="flex items-center gap-2">
                   <strong>Survey Date:</strong>
                   <span className="flex items-center gap-2">
@@ -227,37 +223,36 @@ const NewEnquiries = () => {
                   <strong>Contact Status:</strong>
                   <select
                     className="p-2 border rounded text-[#2d4a5e] text-sm sm:text-base mt-2"
-                    onChange={(e) => openContactStatusModal(enquiry, e.target.value)}
+                    onChange={e => openContactStatusModal(enquiry, e.target.value)}
                     value={enquiry.contact_status || "Not Attended"}
                   >
                     <option value="Not Attended">Not Attended</option>
                     <option value="Attended">Attended</option>
                   </select>
                 </p>
-                {(user?.role === "survey-admin" || user?.role === "sales") && (
-                  <div className="flex flex-wrap gap-2 pt-3">
-                    {!enquiry.survey_date ? (
-                      <button
-                        onClick={() => openScheduleSurveyModal(enquiry)}
-                        className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded hover:bg-[#4c7085]"
-                      >
-                        Schedule Survey
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => openCancelSurveyModal(enquiry)}
-                        className="bg-red-500 text-white text-sm py-2 px-3 rounded hover:bg-red-600"
-                      >
-                        Cancel Survey
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-2 pt-3">
+                  {!enquiry.survey_date ? (
+                    <button
+                      onClick={() => openScheduleSurveyModal(enquiry)}
+                      className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded"
+                    >
+                      Schedule Survey
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => openCancelSurveyModal(enquiry)}
+                      className="bg-red-500 text-white text-sm py-2 px-3 rounded"
+                    >
+                      Cancel Survey
+                    </button>
+                  )}
+                </div>
               </div>
             </motion.div>
           ))}
         </div>
       )}
+      {/* Contact Status Modal */}
       <Modal
         isOpen={isContactStatusOpen}
         onClose={() => setIsContactStatusOpen(false)}
@@ -267,14 +262,14 @@ const NewEnquiries = () => {
             <button
               type="button"
               onClick={() => setIsContactStatusOpen(false)}
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+              className="bg-gray-500 text-white py-2 px-4 rounded"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="contact-status-form"
-              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
+              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded"
             >
               Update Status
             </button>
@@ -329,6 +324,7 @@ const NewEnquiries = () => {
           </form>
         </FormProvider>
       </Modal>
+      {/* Schedule Survey Modal */}
       <Modal
         isOpen={isScheduleSurveyOpen}
         onClose={() => setIsScheduleSurveyOpen(false)}
@@ -338,14 +334,14 @@ const NewEnquiries = () => {
             <button
               type="button"
               onClick={() => setIsScheduleSurveyOpen(false)}
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+              className="bg-gray-500 text-white py-2 px-4 rounded"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="schedule-survey-form"
-              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
+              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded"
             >
               Schedule
             </button>
@@ -368,6 +364,7 @@ const NewEnquiries = () => {
           </form>
         </FormProvider>
       </Modal>
+      {/* Cancel Survey Modal */}
       <Modal
         isOpen={isCancelSurveyOpen}
         onClose={() => setIsCancelSurveyOpen(false)}
@@ -377,14 +374,14 @@ const NewEnquiries = () => {
             <button
               type="button"
               onClick={() => setIsCancelSurveyOpen(false)}
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+              className="bg-gray-500 text-white py-2 px-4 rounded"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="cancel-survey-form"
-              className="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600 text-sm sm:text-base"
+              className="bg-red-500 text-white py-2 px-4 rounded"
             >
               Cancel Survey
             </button>
@@ -406,6 +403,7 @@ const NewEnquiries = () => {
           </form>
         </FormProvider>
       </Modal>
+      {/* Phone Modal */}
       <Modal
         isOpen={isPhoneModalOpen}
         onClose={() => setIsPhoneModalOpen(false)}
@@ -415,7 +413,7 @@ const NewEnquiries = () => {
             <button
               type="button"
               onClick={() => setIsPhoneModalOpen(false)}
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+              className="bg-gray-500 text-white py-2 px-4 rounded"
             >
               Cancel
             </button>
@@ -431,19 +429,17 @@ const NewEnquiries = () => {
               <>
                 <a
                   href={`tel:${selectedEnquiry.phoneNumber}`}
-                  className="flex items-center gap-2 bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
+                  className="flex items-center gap-2 bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded"
                 >
-                  <FaPhoneAlt className="w-5 h-5" />
-                  Call
+                  <FaPhoneAlt className="w-5 h-5" /> Call
                 </a>
                 <a
                   href={`https://wa.me/${selectedEnquiry.phoneNumber}`}
-                  className="flex items-center gap-2 bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 text-sm sm:text-base"
+                  className="flex items-center gap-2 bg-green-500 text-white py-2 px-4 rounded"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <FaWhatsapp className="w-5 h-5" />
-                  WhatsApp
+                  <FaWhatsapp className="w-5 h-5" /> WhatsApp
                 </a>
               </>
             ) : (

@@ -1,179 +1,241 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions
-from django.contrib.auth import authenticate
+from rest_framework import status
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User, OTP
-from .serializers import UserSerializer, LoginSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, ChangePasswordSerializer, PermissionSerializer
-from .utils import generate_otp, generate_password, send_otp_email, send_welcome_email
-from django.utils import timezone
-from datetime import timedelta
-import logging
-
-logger = logging.getLogger(__name__)
+from django.core.mail import send_mail
+from django.conf import settings
+from .models import CustomUser, PagePermission, Role
+from .serializers import LoginSerializer, ForgotPasswordSerializer, OTPVerificationSerializer, ResetPasswordSerializer, PagePermissionSerializer, RoleSerializer
+import random
+import string
 
 class LoginView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = authenticate(email=serializer.validated_data["email"], password=serializer.validated_data["password"])
-        if user:
-            refresh = RefreshToken.for_user(user)
-            logger.info(f"User {user.email} logged in successfully")
-            return Response({
-                "user": UserSerializer(user).data,
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-            })
-        logger.error(f"Login failed for email: {serializer.validated_data['email']}")
-        return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            password = serializer.validated_data['password']
+            user = CustomUser.objects.filter(email=email).first()
+            if user and user.check_password(password):
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                    'roles': [role.name for role in user.roles.all()],
+                    'id': user.id
+                }, status=status.HTTP_200_OK)
+            return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LogoutView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         try:
-            refresh_token = request.data.get("refresh")
+            refresh_token = request.data.get('refresh')
             if not refresh_token:
-                logger.error("No refresh token provided in logout request")
-                return Response({"error": "Refresh token is required"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Refresh token is required'}, status=status.HTTP_400_BAD_REQUEST)
             token = RefreshToken(refresh_token)
             token.blacklist()
-            logger.info(f"User {request.user.email} logged out successfully")
-            return Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
+            return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f"Logout failed: {str(e)}")
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class ForgotPasswordView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = ForgotPasswordSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data["email"]
-        try:
-            user = User.objects.get(email=email)
-            otp = generate_otp()
-            OTP.objects.create(email=email, otp=otp)
-            send_otp_email(email, otp)
-            logger.info(f"OTP sent to {email} for password reset")
-            return Response({"message": "OTP sent to email"}, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            logger.error(f"Forgot password failed: Email {email} not found")
-            return Response({"error": "Email not found"}, status=status.HTTP_404_NOT_FOUND)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            user = CustomUser.objects.get(email=email)
+            otp = user.generate_otp()
+            send_mail(
+                'Your OTP for Password Reset',
+                f'Your OTP is {otp}. It is valid for 10 minutes.',
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
+            )
+            return Response({'message': 'OTP sent to your email'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class OTPVerificationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = OTPVerificationSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            user = CustomUser.objects.get(email=email)
+            user.otp = None
+            user.otp_created_at = None
+            user.save()
+            return Response({'message': 'OTP verified successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ResetPasswordView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = ResetPasswordSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data["email"]
-        otp = serializer.validated_data["otp"]
-        password = serializer.validated_data["password"]
-        try:
-            otp_obj = OTP.objects.filter(email=email, otp=otp).latest("created_at")
-            if timezone.now() - otp_obj.created_at > timedelta(minutes=10):
-                logger.error(f"Password reset failed for {email}: OTP expired")
-                return Response({"error": "OTP expired"}, status=status.HTTP_400_BAD_REQUEST)
-            user = User.objects.get(email=email)
-            user.set_password(password)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            new_password = serializer.validated_data['new_password']
+            user = CustomUser.objects.get(email=email)
+            user.set_password(new_password)
             user.save()
-            OTP.objects.filter(email=email).delete()
-            logger.info(f"Password reset successfully for {email}")
-            return Response({"message": "Password reset successfully"}, status=status.HTTP_200_OK)
-        except OTP.DoesNotExist:
-            logger.error(f"Password reset failed for {email}: Invalid OTP")
-            return Response({"error": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': 'Password reset successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class ChangePasswordView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
+class CreateUserView(APIView):
+    permission_classes = [IsAuthenticated]
     def post(self, request):
-        if request.user.role != "admin" and "profile" not in request.user.permissions:
-            logger.error(f"Change password failed for {request.user.email}: Permission denied")
-            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
-        serializer = ChangePasswordSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = request.user
-        if not user.check_password(serializer.validated_data["current_password"]):
-            logger.error(f"Change password failed for {user.email}: Incorrect current password")
-            return Response({"error": "Current password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
-        user.set_password(serializer.validated_data["new_password"])
-        user.save()
-        logger.info(f"Password changed successfully for {user.email}")
-        return Response({"message": "Password changed successfully"}, status=status.HTTP_200_OK)
+        name = request.data.get('name')
+        email = request.data.get('email')
+        role_ids = request.data.get('role_ids', [])
+        password = request.data.get('password')
+        auto_generate = request.data.get('auto_generate_password', False)
+        enable_email_receiver = request.data.get('enable_email_receiver', False)
+        if not name or not email:
+            return Response({'error': 'Name and email are required'}, status=status.HTTP_400_BAD_REQUEST)
+        if CustomUser.objects.filter(email=email).exists():
+            return Response({'error': 'Email already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        if auto_generate:
+            password = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+        elif not password:
+            return Response({'error': 'Password is required if not auto-generated'}, status=status.HTTP_400_BAD_REQUEST)
+        user = CustomUser.objects.create_user(
+            email=email,
+            password=password,
+            first_name=name,
+            enable_email_receiver=enable_email_receiver
+        )
+        roles = Role.objects.filter(id__in=role_ids)
+        user.roles.set(roles)
+        if 'superadmin' in [role.name for role in roles]:
+            permissions, _ = PagePermission.objects.get_or_create(user=user)
+            permissions.permissions = ['dashboard', 'profile', 'roles', 'users', 'permissions']
+            permissions.save()
+        send_mail(
+            'Your Account Credentials',
+            f'Your account has been created.\nEmail: {email}\nPassword: {password}\nPlease change your password after logging in.',
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+        return Response({
+            'id': user.id,
+            'email': user.email,
+            'name': user.first_name,
+            'roles': [role.name for role in user.roles.all()],
+            'enable_email_receiver': user.enable_email_receiver
+        }, status=status.HTTP_201_CREATED)
 
-class UserView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+class UserListView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if request.user.role != "admin":
-            logger.error(f"User list access denied for {request.user.email}: Not admin")
-            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
-        users = User.objects.all()
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
+        users = CustomUser.objects.all()
+        data = [{
+            'id': u.id,
+            'email': u.email,
+            'name': u.first_name,
+            'roles': [role.name for role in u.roles.all()]
+        } for u in users]
+        return Response(data, status=status.HTTP_200_OK)
 
-    def post(self, request):
-        if request.user.role != "admin":
-            logger.error(f"User creation denied for {request.user.email}: Not admin")
-            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
-        serializer = UserSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        password = generate_password()
-        user = User.objects.create(
-            email=serializer.validated_data["email"],
-            name=serializer.validated_data["name"],
-            role="sales",
-            permissions=["dashboard", "profile"]
-        )
-        user.set_password(password)
-        user.save()
-        send_welcome_email(user.email, user.name, password)
-        logger.info(f"User {user.email} created successfully by {request.user.email}")
-        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
-
-class UserDetailView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+class UserDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def delete(self, request, user_id):
-        if request.user.role != "admin":
-            logger.error(f"User deletion denied for {request.user.email}: Not admin")
-            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
         try:
-            user = User.objects.get(id=user_id, role="sales")
+            user = CustomUser.objects.get(id=user_id)
             user.delete()
-            logger.info(f"User {user_id} deleted by {request.user.email}")
-            return Response({"message": "User deleted"}, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            logger.error(f"User deletion failed: User {user_id} not found")
-            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'User deleted successfully'}, status=status.HTTP_200_OK)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class RoleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        roles = Role.objects.all()
+        return Response(RoleSerializer(roles, many=True).data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = RoleSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        try:
+            role = Role.objects.get(pk=pk)
+            role.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Role.DoesNotExist:
+            return Response({"error": "Role not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class RoleNameEmailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, name, email):
+        try:
+            role = Role.objects.get(name=name)
+            user = CustomUser.objects.get(email=email)
+            user.roles.add(role)
+            return Response({
+                'message': f'Role {name} assigned to {email}',
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'name': user.first_name,
+                    'roles': [role.name for role in user.roles.all()]
+                }
+            }, status=status.HTTP_200_OK)
+        except Role.DoesNotExist:
+            return Response({'error': 'Role not found'}, status=status.HTTP_404_NOT_FOUND)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
 class PermissionView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            permissions = PagePermission.objects.get(user_id=user_id)
+            return Response(PagePermissionSerializer(permissions).data, status=status.HTTP_200_OK)
+        except PagePermission.DoesNotExist:
+            return Response({'permissions': []}, status=status.HTTP_200_OK)
 
     def post(self, request, user_id):
-        if request.user.role != "admin":
-            logger.error(f"Permission update denied for {request.user.email}: Not admin")
-            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
-        serializer = PermissionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
         try:
-            user = User.objects.get(id=user_id)
-            validated_permissions = serializer.validated_data["permissions"]
-            if user.role == "admin":
-                mandatory_permissions = ["dashboard", "profile", "users", "permissions"]
-                for perm in mandatory_permissions:
-                    if perm not in validated_permissions:
-                        validated_permissions.append(perm)
-            user.permissions = validated_permissions
+            permissions, created = PagePermission.objects.get_or_create(user_id=user_id)
+            permissions.permissions = request.data.get('permissions', [])
+            permissions.save()
+            return Response(PagePermissionSerializer(permissions).data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        email = request.data.get('email')
+        current_password = request.data.get('current_password')
+        new_password = request.data.get('new_password')
+        if not email or not current_password or not new_password:
+            return Response({'error': 'All fields are required'}, status=status.HTTP_400_BAD_REQUEST)
+        user = CustomUser.objects.filter(email=email).first()
+        if user and user.check_password(current_password):
+            user.set_password(new_password)
             user.save()
-            logger.info(f"Permissions updated for user {user_id} by {request.user.email}")
-            return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            logger.error(f"Permission update failed: User {user_id} not found")
-            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'Password changed successfully'}, status=status.HTTP_200_OK)
+        return Response({'error': 'Invalid current password'}, status=status.HTTP_400_BAD_REQUEST)

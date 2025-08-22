@@ -13,10 +13,11 @@ import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
 import Users from "./pages/Admin/Users";
 import Permissions from "./pages/Admin/Permissions";
+import Roles from "./pages/Admin/Roles";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { useAuth, AuthProvider } from "./hooks/useAuth";
 
-const ProtectedRoute = ({ children, allowedRoles, requiredPermission }) => {
+const ProtectedRoute = ({ children, requiredPermission }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -28,12 +29,13 @@ const ProtectedRoute = ({ children, allowedRoles, requiredPermission }) => {
   }
 
   if (!user) return <Navigate to="/login" />;
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+
+  const hasRequiredPermission = requiredPermission ? user.permissions.includes(requiredPermission) : true;
+
+  if (!hasRequiredPermission) {
     return <Navigate to="/" />;
   }
-  if (user.role === "sales" && requiredPermission && !user.permissions.includes(requiredPermission)) {
-    return <Navigate to="/" />;
-  }
+
   return typeof children === "function" ? children(user) : children;
 };
 
@@ -61,15 +63,15 @@ const router = createBrowserRouter([
       {
         index: true,
         element: (
-          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="dashboard">
-            {user => (user.role === "survey-admin" ? <AdminDashboard /> : <SalesDashboard />)}
+          <ProtectedRoute requiredPermission="dashboard">
+            {user => (user.permissions.includes("users") ? <AdminDashboard /> : <SalesDashboard />)}
           </ProtectedRoute>
         ),
       },
       {
         path: "/enquiries",
         element: (
-          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="enquiries">
+          <ProtectedRoute requiredPermission="enquiries">
             <Enquiries />
           </ProtectedRoute>
         ),
@@ -77,7 +79,7 @@ const router = createBrowserRouter([
       {
         path: "/processing-enquiries",
         element: (
-          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="processing-enquiries">
+          <ProtectedRoute requiredPermission="processing-enquiries">
             <ProcessingEnquiries />
           </ProtectedRoute>
         ),
@@ -85,7 +87,7 @@ const router = createBrowserRouter([
       {
         path: "/follow-ups",
         element: (
-          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="follow-ups">
+          <ProtectedRoute requiredPermission="follow-ups">
             <FollowUps />
           </ProtectedRoute>
         ),
@@ -93,7 +95,7 @@ const router = createBrowserRouter([
       {
         path: "/scheduled-surveys",
         element: (
-          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="scheduled-surveys">
+          <ProtectedRoute requiredPermission="scheduled-surveys">
             <ScheduledSurveys />
           </ProtectedRoute>
         ),
@@ -101,7 +103,7 @@ const router = createBrowserRouter([
       {
         path: "/new-enquiries",
         element: (
-          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="new-enquiries">
+          <ProtectedRoute requiredPermission="new-enquiries">
             <NewEnquiries />
           </ProtectedRoute>
         ),
@@ -109,7 +111,7 @@ const router = createBrowserRouter([
       {
         path: "/profile",
         element: (
-          <ProtectedRoute allowedRoles={["survey-admin", "sales"]} requiredPermission="profile">
+          <ProtectedRoute requiredPermission="profile">
             <Profile />
           </ProtectedRoute>
         ),
@@ -117,7 +119,7 @@ const router = createBrowserRouter([
       {
         path: "/users",
         element: (
-          <ProtectedRoute allowedRoles={["survey-admin"]} requiredPermission="users">
+          <ProtectedRoute requiredPermission="users">
             <Users />
           </ProtectedRoute>
         ),
@@ -125,8 +127,16 @@ const router = createBrowserRouter([
       {
         path: "/permissions",
         element: (
-          <ProtectedRoute allowedRoles={["survey-admin"]} requiredPermission="permissions">
+          <ProtectedRoute requiredPermission="permissions">
             <Permissions />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/roles",
+        element: (
+          <ProtectedRoute requiredPermission="roles">
+            <Roles />
           </ProtectedRoute>
         ),
       },

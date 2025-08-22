@@ -15,7 +15,7 @@ const rowVariants = {
 const Enquiries = () => {
   const { user } = useAuth();
   const [enquiries, setEnquiries] = useState([]);
-  const [salespersons, setSalespersons] = useState([]);
+  const [emailReceivers, setEmailReceivers] = useState([]);
   const [error, setError] = useState(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -37,19 +37,9 @@ const Enquiries = () => {
   ];
 
   useEffect(() => {
-    const script = document.createElement("script");
-    script.src = `https://www.google.com/recaptcha/api.js?render=${import.meta.env.VITE_RECAPTCHA_SITE_KEY}`;
-    script.async = true;
-    document.body.appendChild(script);
-
+    if (!user || !user.permissions.includes("dashboard")) return;
     fetchEnquiries();
-    if (user?.role === "survey-admin") {
-      fetchSalespersons();
-    }
-
-    return () => {
-      document.body.removeChild(script);
-    };
+    fetchEmailReceivers();
   }, [user]);
 
   const fetchEnquiries = async () => {
@@ -59,62 +49,64 @@ const Enquiries = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         params: { has_survey: "false" },
       });
-      setEnquiries(response.data);
+      setEnquiries(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
-      console.error("Failed to fetch enquiries", err);
-      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to fetch enquiries. Please try again.");
+      setEnquiries([]);
+      setError(err.response?.data?.error || "Failed to fetch enquiries. Please try again.");
     }
   };
 
-  const fetchSalespersons = async () => {
+  const fetchEmailReceivers = async () => {
     try {
       setError(null);
       const response = await axios.get("http://127.0.0.1:8000/api/auth/users/list/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
-      setSalespersons(response.data.map((user) => ({ value: user.email, label: user.name })));
+      setEmailReceivers(
+        response.data
+          .filter(u => u.enable_email_receiver)
+          .map(u => ({ value: u.email, label: u.name || u.email }))
+      );
     } catch (err) {
-      console.error("Failed to fetch salespersons", err);
-      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to fetch salespersons. Please try again.");
+      setError("Failed to fetch email receivers. Please try again.");
     }
-  };
-
-  const formatError = (errorData) => {
-    if (!errorData) return null;
-    return Object.entries(errorData)
-      .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(", ") : errors}`)
-      .join("; ");
   };
 
   const onAddSubmit = async (data) => {
     try {
       setError(null);
-      await window.grecaptcha.ready(() => {
-        window.grecaptcha
-          .execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, { action: "submit_enquiry" })
-          .then(async (token) => {
-            await axios.post(
-              "http://127.0.0.1:8000/api/contacts/enquiries/",
-              {
-                fullName: data.customerName,
-                phoneNumber: data.phone,
-                email: data.email,
-                serviceType: data.service,
-                message: data.message,
-                recaptchaToken: token,
-                refererUrl: window.location.href,
-                submittedUrl: window.location.href,
-              },
-              { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-            );
-            fetchEnquiries();
-            setIsAddOpen(false);
-            addForm.reset();
-          });
+      const token = await new Promise((resolve, reject) => {
+        window.grecaptcha.ready(() => {
+          window.grecaptcha
+            .execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, { action: "submit_enquiry" })
+            .then(resolve)
+            .catch(reject);
+        });
       });
+      await axios.post(
+        "http://127.0.0.1:8000/api/contacts/enquiries/",
+        {
+          fullName: data.customerName,
+          phoneNumber: data.phone,
+          email: data.email,
+          serviceType: data.service,
+          message: data.message,
+          recaptchaToken: token,
+          refererUrl: window.location.href,
+          submittedUrl: window.location.href,
+        },
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      );
+      fetchEnquiries();
+      setIsAddOpen(false);
+      addForm.reset();
     } catch (err) {
-      console.error("Failed to add enquiry", err);
-      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to add enquiry. Please try again.");
+      const errorMessage = err.response?.data
+        ? Object.entries(err.response.data)
+            .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`)
+            .join("; ")
+        : err.message || "Failed to add enquiry. Please try again.";
+      setError(errorMessage);
     }
   };
 
@@ -136,8 +128,12 @@ const Enquiries = () => {
       setIsEditOpen(false);
       editForm.reset();
     } catch (err) {
-      console.error("Failed to update enquiry", err);
-      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to update enquiry. Please try again.");
+      const errorMessage = err.response?.data
+        ? Object.entries(err.response.data)
+            .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`)
+            .join("; ")
+        : err.message || "Failed to update enquiry.";
+      setError(errorMessage);
     }
   };
 
@@ -146,15 +142,22 @@ const Enquiries = () => {
       setError(null);
       await axios.patch(
         `http://127.0.0.1:8000/api/contacts/enquiries/${selectedEnquiry.id}/`,
-        { salesperson_email: data.salesperson || null, note: data.note || null },
+        {
+          assigned_user_email: data.emailReceiver || null,
+          note: data.note || null,
+        },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
       fetchEnquiries();
       setIsAssignOpen(false);
       assignForm.reset();
     } catch (err) {
-      console.error("Failed to assign enquiry", err);
-      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to assign enquiry. Please try again.");
+      const errorMessage = err.response?.data
+        ? Object.entries(err.response.data)
+            .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`)
+            .join("; ")
+        : err.message || "Failed to assign enquiry.";
+      setError(errorMessage);
     }
   };
 
@@ -168,8 +171,8 @@ const Enquiries = () => {
       fetchEnquiries();
       setIsDeleteOpen(false);
     } catch (err) {
-      console.error("Failed to delete enquiry", err);
-      setError(err.response?.data?.error || formatError(err.response?.data) || "Failed to delete enquiry. Please try again.");
+      const errorMessage = err.response?.data?.error || "Failed to delete enquiry.";
+      setError(errorMessage);
     }
   };
 
@@ -187,7 +190,10 @@ const Enquiries = () => {
 
   const openAssignModal = (enquiry) => {
     setSelectedEnquiry(enquiry);
-    assignForm.reset({ salesperson: enquiry.salesperson_email, note: enquiry.note });
+    assignForm.reset({
+      emailReceiver: enquiry.assigned_user_email,
+      note: enquiry.note,
+    });
     setIsAssignOpen(true);
   };
 
@@ -201,23 +207,21 @@ const Enquiries = () => {
     setIsPhoneModalOpen(true);
   };
 
+  if (!user || !user.permissions.includes("dashboard")) {
+    return <div className="text-[#2d4a5e] text-center">Access denied. You need the 'dashboard' permission to view enquiries.</div>;
+  }
+
   return (
     <div className="container mx-auto">
       {error && (
-        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">
-          {error}
-        </div>
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">{error}</div>
       )}
-      {user?.role === "survey-admin" && (
-        <div className="mb-6">
-          <button
-            onClick={() => setIsAddOpen(true)}
-            className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm sm:text-base font-medium py-2 px-4 rounded hover:bg-[#4c7085]"
-          >
-            Add New Enquiry
-          </button>
-        </div>
-      )}
+      <button
+        onClick={() => setIsAddOpen(true)}
+        className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded mb-4"
+      >
+        Add New Enquiry
+      </button>
       {enquiries.length === 0 ? (
         <div className="text-center text-[#2d4a5e] text-sm sm:text-base p-5 bg-white shadow-sm rounded-lg">
           No Enquiries Found
@@ -241,62 +245,53 @@ const Enquiries = () => {
                   {enquiry.phoneNumber ? (
                     <button
                       onClick={() => openPhoneModal(enquiry)}
-                      className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
-                      aria-label="Contact via phone or WhatsApp"
+                      className="flex items-center gap-2 text-[#4c7085]"
                     >
                       <FaPhoneAlt className="w-3 h-3" /> {enquiry.phoneNumber}
                     </button>
-                  ) : (
-                    "N/A"
-                  )}
+                  ) : "N/A"}
                 </p>
                 <p className="flex items-center gap-2">
                   <strong>Email:</strong>
                   {enquiry.email ? (
                     <a
                       href={`mailto:${enquiry.email}`}
-                      className="flex items-center justify-center gap-2 text-[#4c7085] hover:text-[#2d4a5e]"
-                      aria-label="Email customer"
+                      className="flex items-center gap-2 text-[#4c7085]"
                     >
                       <FaEnvelope className="w-3 h-3" /> {enquiry.email}
                     </a>
-                  ) : (
-                    "N/A"
-                  )}
+                  ) : "N/A"}
                 </p>
-                <p><strong>Service:</strong> {enquiry.serviceType || "N/A"}</p>
+                <p><strong>Service:</strong> {serviceOptions.find(opt => opt.value === enquiry.serviceType)?.label || enquiry.serviceType || "N/A"}</p>
                 <p><strong>Message:</strong> {enquiry.message || "N/A"}</p>
                 <p><strong>Note:</strong> {enquiry.note || "N/A"}</p>
-                {enquiry.salesperson_email && (
-                  <p><strong>Salesperson:</strong> {enquiry.salesperson_email || "N/A"}</p>
-                )}
-                {user?.role === "survey-admin" && (
-                  <div className="flex flex-wrap gap-2 pt-3">
-                    <button
-                      onClick={() => openAssignModal(enquiry)}
-                      className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded hover:bg-[#4c7085]"
-                    >
-                      Assign
-                    </button>
-                    <button
-                      onClick={() => openEditModal(enquiry)}
-                      className="bg-gray-500 text-white text-sm py-2 px-3 rounded hover:bg-gray-600"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => openDeleteModal(enquiry)}
-                      className="bg-red-500 text-white text-sm py-2 px-3 rounded hover:bg-red-600"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
+                <p><strong>Assigned To:</strong> {enquiry.assigned_user_email || "Unassigned"}</p>
+                <div className="flex flex-wrap gap-2 pt-3">
+                  <button
+                    onClick={() => openAssignModal(enquiry)}
+                    className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white text-sm py-2 px-3 rounded"
+                  >
+                    Assign
+                  </button>
+                  <button
+                    onClick={() => openEditModal(enquiry)}
+                    className="bg-gray-500 text-white text-sm py-2 px-3 rounded"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => openDeleteModal(enquiry)}
+                    className="bg-red-500 text-white text-sm py-2 px-3 rounded"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </motion.div>
           ))}
         </div>
       )}
+      {/* Add Enquiry Modal */}
       <Modal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
@@ -306,14 +301,14 @@ const Enquiries = () => {
             <button
               type="button"
               onClick={() => setIsAddOpen(false)}
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+              className="bg-gray-500 text-white py-2 px-4 rounded"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="add-enquiry-form"
-              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
+              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded"
             >
               Add Enquiry
             </button>
@@ -334,10 +329,7 @@ const Enquiries = () => {
               type="text"
               rules={{
                 required: "Phone Number is required",
-                pattern: {
-                  value: /^[0-9]{10}$/,
-                  message: "Enter a valid 10-digit phone number",
-                },
+                pattern: { value: /^[0-9]{10}$/, message: "Enter a valid 10-digit phone number" },
               }}
             />
             <Input
@@ -346,10 +338,7 @@ const Enquiries = () => {
               type="email"
               rules={{
                 required: "Email is required",
-                pattern: {
-                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                  message: "Enter a valid email",
-                },
+                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Enter a valid email" },
               }}
             />
             <Input
@@ -368,6 +357,7 @@ const Enquiries = () => {
           </form>
         </FormProvider>
       </Modal>
+      {/* Edit Enquiry Modal */}
       <Modal
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
@@ -377,14 +367,14 @@ const Enquiries = () => {
             <button
               type="button"
               onClick={() => setIsEditOpen(false)}
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+              className="bg-gray-500 text-white py-2 px-4 rounded"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="edit-enquiry-form"
-              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
+              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded"
             >
               Update Enquiry
             </button>
@@ -405,10 +395,7 @@ const Enquiries = () => {
               type="text"
               rules={{
                 required: "Phone Number is required",
-                pattern: {
-                  value: /^[0-9]{10}$/,
-                  message: "Enter a valid 10-digit phone number",
-                },
+                pattern: { value: /^[0-9]{10}$/, message: "Enter a valid 10-digit phone number" },
               }}
             />
             <Input
@@ -417,10 +404,7 @@ const Enquiries = () => {
               type="email"
               rules={{
                 required: "Email is required",
-                pattern: {
-                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                  message: "Enter a valid email",
-                },
+                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Enter a valid email" },
               }}
             />
             <Input
@@ -439,6 +423,7 @@ const Enquiries = () => {
           </form>
         </FormProvider>
       </Modal>
+      {/* Assign Modal */}
       <Modal
         isOpen={isAssignOpen}
         onClose={() => setIsAssignOpen(false)}
@@ -448,14 +433,14 @@ const Enquiries = () => {
             <button
               type="button"
               onClick={() => setIsAssignOpen(false)}
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+              className="bg-gray-500 text-white py-2 px-4 rounded"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="assign-enquiry-form"
-              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
+              className="bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded"
             >
               Assign
             </button>
@@ -465,11 +450,11 @@ const Enquiries = () => {
         <FormProvider {...assignForm}>
           <form id="assign-enquiry-form" onSubmit={assignForm.handleSubmit(onAssignSubmit)} className="space-y-4">
             <Input
-              label="Salesperson"
-              name="salesperson"
+              label="Assign To"
+              name="emailReceiver"
               type="select"
-              options={salespersons}
-              rules={{ required: "Salesperson is required" }}
+              options={[{ value: "", label: "Unassign" }, ...emailReceivers]}
+              rules={{ required: false }}
             />
             <Input
               label="Note (Optional)"
@@ -479,6 +464,7 @@ const Enquiries = () => {
           </form>
         </FormProvider>
       </Modal>
+      {/* Delete Modal */}
       <Modal
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
@@ -487,13 +473,13 @@ const Enquiries = () => {
           <>
             <button
               onClick={() => setIsDeleteOpen(false)}
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+              className="bg-gray-500 text-white py-2 px-4 rounded"
             >
               Cancel
             </button>
             <button
               onClick={onDelete}
-              className="bg-red-500 text-white py-2 px-3 rounded hover:bg-red-600 text-sm sm:text-base"
+              className="bg-red-500 text-white py-2 px-3 rounded"
             >
               Delete
             </button>
@@ -504,6 +490,7 @@ const Enquiries = () => {
           Are you sure you want to delete this enquiry?
         </p>
       </Modal>
+      {/* Phone Modal */}
       <Modal
         isOpen={isPhoneModalOpen}
         onClose={() => setIsPhoneModalOpen(false)}
@@ -513,7 +500,7 @@ const Enquiries = () => {
             <button
               type="button"
               onClick={() => setIsPhoneModalOpen(false)}
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 text-sm sm:text-base"
+              className="bg-gray-500 text-white py-2 px-4 rounded"
             >
               Cancel
             </button>
@@ -529,19 +516,17 @@ const Enquiries = () => {
               <>
                 <a
                   href={`tel:${selectedEnquiry.phoneNumber}`}
-                  className="flex items-center gap-2 bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded hover:bg-[#4c7085] text-sm sm:text-base"
+                  className="flex items-center gap-2 bg-gradient-to-r from-[#4c7085] to-[#6b8ca3] text-white py-2 px-4 rounded"
                 >
-                  <FaPhoneAlt className="w-5 h-5" />
-                  Call
+                  <FaPhoneAlt className="w-5 h-5" /> Call
                 </a>
                 <a
                   href={`https://wa.me/${selectedEnquiry.phoneNumber}`}
-                  className="flex items-center gap-2 bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 text-sm sm:text-base"
+                  className="flex items-center gap-2 bg-green-500 text-white py-2 px-4 rounded"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <FaWhatsapp className="w-5 h-5" />
-                  WhatsApp
+                  <FaWhatsapp className="w-5 h-5" /> WhatsApp
                 </a>
               </>
             ) : (

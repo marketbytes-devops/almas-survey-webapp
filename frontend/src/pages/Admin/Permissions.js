@@ -2,16 +2,19 @@ import { useState, useEffect } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import axios from "axios";
 import Modal from "../../components/Modal";
+import { useAuth } from "../../hooks/useAuth";
 
 const Permissions = () => {
+  const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const permissionForm = useForm();
 
   useEffect(() => {
+    if (!user || !user.permissions.includes("permissions")) return;
     fetchUsers();
-  }, []);
+  }, [user]);
 
   const fetchUsers = async () => {
     try {
@@ -36,12 +39,14 @@ const Permissions = () => {
     try {
       await axios.post(
         `http://127.0.0.1:8000/api/auth/permissions/${selectedUser.id}/`,
-        { permissions: Object.keys(data).filter((key) => data[key]).map(key => {
-          return key === "processingEnquiries" ? "processing-enquiries" :
-                 key === "followUps" ? "follow-ups" :
-                 key === "scheduledSurveys" ? "scheduled-surveys" :
-                 key === "newEnquiries" ? "new-enquiries" : key;
-        }) },
+        { 
+          permissions: Object.keys(data).filter((key) => data[key]).map(key => {
+            return key === "processingEnquiries" ? "processing-enquiries" :
+                   key === "followUps" ? "follow-ups" :
+                   key === "scheduledSurveys" ? "scheduled-surveys" :
+                   key === "newEnquiries" ? "new-enquiries" : key;
+          }) 
+        },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
       fetchUsers();
@@ -64,9 +69,14 @@ const Permissions = () => {
       profile: user.permissions.includes("profile"),
       users: user.permissions.includes("users"),
       permissions: user.permissions.includes("permissions"),
+      roles: user.permissions.includes("roles"),
     });
     setIsModalOpen(true);
   };
+
+  if (!user || !user.permissions.includes("permissions")) {
+    return <div className="text-[#2d4a5e] text-center">Access denied. You need the 'permissions' permission to manage permissions.</div>;
+  }
 
   return (
     <div className="container mx-auto">
@@ -77,7 +87,7 @@ const Permissions = () => {
               <p><strong>Sl No:</strong> {index + 1}</p>
               <p><strong>Name:</strong> {user.name}</p>
               <p><strong>Email:</strong> {user.email}</p>
-              <p><strong>Role:</strong> {user.role}</p>
+              <p><strong>Roles:</strong> {user.roles.join(", ") || "None"}</p>
               <p><strong>Permissions:</strong> {user.permissions.join(", ") || "None"}</p>
               <button
                 onClick={() => openModal(user)}
@@ -125,13 +135,13 @@ const Permissions = () => {
               { name: "profile", label: "Profile" },
               { name: "users", label: "Users" },
               { name: "permissions", label: "Permissions" },
+              { name: "roles", label: "Roles" },
             ].map((item) => (
               <div key={item.name} className="flex items-center">
                 <input
                   type="checkbox"
                   {...permissionForm.register(item.name)}
-                  disabled={selectedUser?.role === "survey-admin" && ["dashboard", "profile", "users", "permissions"].includes(item.name)}
-                  className="mr-2 w-5 h-5 disabled:opacity-50"
+                  className="mr-2 w-5 h-5"
                 />
                 <label className="text-[#2d4a5e] text-sm sm:text-base">{item.label}</label>
               </div>

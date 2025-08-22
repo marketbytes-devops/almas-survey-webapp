@@ -1,54 +1,58 @@
 from rest_framework import serializers
-from .models import User, OTP
-
-VALID_PERMISSIONS = [
-    "dashboard",
-    "enquiries",
-    "processing-enquiries",
-    "follow-ups",
-    "scheduled-surveys",
-    "new-enquiries",
-    "profile",
-    "users",
-    "permissions"
-]
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ["id", "name", "email", "role", "permissions"]
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        if isinstance(data["permissions"], dict) and "permissions" in data["permissions"]:
-            data["permissions"] = data["permissions"]["permissions"]
-        return data
+from django.utils import timezone
+from datetime import timedelta
+from .models import CustomUser, PagePermission, Role
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    password = serializers.CharField()
+    password = serializers.CharField(write_only=True)
 
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
-class ResetPasswordSerializer(serializers.Serializer):
+    def validate_email(self, value):
+        if not CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("User with this email does not exist.")
+        return value
+
+class OTPVerificationSerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp = serializers.CharField(max_length=6)
-    password = serializers.CharField(min_length=6)
 
-class ChangePasswordSerializer(serializers.Serializer):
+    def validate(self, data):
+        email = data.get('email')
+        otp = data.get('otp')
+        try:
+            user = CustomUser.objects.get(email=email)
+            if not user.otp or user.otp != otp:
+                raise serializers.ValidationError("Invalid or expired OTP")
+            if user.otp_created_at < timezone.now() - timedelta(minutes=10):
+                raise serializers.ValidationError("OTP has expired")
+        except CustomUser.DoesNotExist:
+            raise serializers.ValidationError("User with this email does not exist")
+        return data
+
+class ResetPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    current_password = serializers.CharField()
-    new_password = serializers.CharField(min_length=6)
+    new_password = serializers.CharField(write_only=True)
+    confirm_new_password = serializers.CharField(write_only=True)
 
-class PermissionSerializer(serializers.Serializer):
-    permissions = serializers.ListField(
-        child=serializers.CharField(),
-        allow_empty=True
-    )
+    def validate(self, data):
+        if data['new_password'] != data['confirm_new_password']:
+            raise serializers.ValidationError("Passwords do not match")
+        return data
 
-    def validate_permissions(self, value):
-        invalid_permissions = [perm for perm in value if perm not in VALID_PERMISSIONS]
-        if invalid_permissions:
-            raise serializers.ValidationError(f"Invalid permissions: {invalid_permissions}")
+    def validate_email(self, value):
+        if not CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("User with this email does not exist.")
         return value
+
+class PagePermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PagePermission
+        fields = ['id', 'user', 'permissions']
+
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ['id', 'name', 'description', 'created_at']
